@@ -39,6 +39,16 @@ class SmallScheme {
         if (out = SmallScheme.parse_comment(input))     return out
         else                                            return false
     }
+    static parse_intertokenSpace(input) {
+        let out = SmallScheme.parse_atmosphere(input)
+        if (!out) return input
+
+        let res = out
+        while (res = SmallScheme.parse_atmosphere(res)) {
+            out = res
+        }
+        return out
+    }
     // ---- identifier parsing ----
     static parse_letter(input) {
         let aCode = 97  //"a".charCodeAt(0)
@@ -48,11 +58,16 @@ class SmallScheme {
         if (firstCode >= aCode && firstCode <= zCoxe)   return input.substr(1)
         else                                            return false
     }
-
     static parse_specialInitial(input) {
         if (input.length == 0)                              return false
         let isSpecial = letter => letter == input[0]
         if (SchemeSpecialLetters.split("").some(isSpecial)) return input.substr(1)
+        else                                                return false
+    }
+    static parse_initial(input) {
+        let out = false
+        if (out = SmallScheme.parse_letter(input))          return out
+        if (out = SmallScheme.parse_specialInitial(input))  return out
         else                                                return false
     }
     
