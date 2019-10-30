@@ -1,22 +1,46 @@
 
 let x = 0
 
-function addTest(input, expectedResult) {
+function addTest(resultsTable, input, expectedResult) {
     let val = eval(input)
     let isGood = val == expectedResult
-    return "Test #"+(x++)+": "+input + " => "+ String(val) + " : " + (isGood ? "PASS" : "FAILED") + "\n"
+    let testRow = resultsTable.insertRow(-1)
+
+    let testIdCell  = testRow.insertCell(-1)
+    testIdCell.innerText = "Test #"+(x++)
+
+    let inputCell   = testRow.insertCell(-1)
+    inputCell.innerText = input
+
+    let valCell     = testRow.insertCell(-1)
+    valCell.innerText = String(val)
+
+    let resultCell  = testRow.insertCell(-1)
+    resultCell.innerText = isGood ? "PASS" : "FAILED"
+    resultCell.style.color = isGood ? "green" : "red"
+
+    if (!isGood) {
+        let commentCell = testRow.insertCell(-1)
+        commentCell.innerText = "was expecting "+String(expectedResult)
+    }
 }
 
-output = document.getElementById("output")
-if (output) {
-    let outputStr = ""
-    outputStr += addTest('SmallScheme.parse_comment("; adsasffdjjjj   ffff ;;  fff\\nhello")', "hello")
-    outputStr += addTest('SmallScheme.parse_atmosphere(" hello")', "hello")
-    outputStr += addTest('SmallScheme.parse_atmosphere("\thello")', "hello")
-    outputStr += addTest('SmallScheme.parse_atmosphere(";ddddd ; \\nhello")', "hello")
-    outputStr += addTest('SmallScheme.parse_atmosphere("- hello")', false)
-    outputStr += addTest('SmallScheme.tokenize("(print \\"hello world\\")")')
-    outputStr += addTest('SmallScheme.tokenize("(+ 1 2)")')
-    
-    output.innerText = outputStr
+resultsTable = document.getElementById("results")
+if (resultsTable) {
+    addTest(resultsTable, 'SmallScheme.parse_comment("; adsasffdjjjj   ffff ;;  fff\\nhello")', "hello")
+    addTest(resultsTable, 'SmallScheme.parse_atmosphere(" hello")', "hello")
+    addTest(resultsTable, 'SmallScheme.parse_atmosphere("\thello")', "hello")
+    addTest(resultsTable, 'SmallScheme.parse_atmosphere(";ddddd ; \\nhello")', "hello")
+    addTest(resultsTable, 'SmallScheme.parse_atmosphere("- hello")', false)
+    addTest(resultsTable, 'SmallScheme.parse_letter("Allo")', "llo")
+    addTest(resultsTable, 'SmallScheme.parse_letter("allo")', "llo")
+    addTest(resultsTable, 'SmallScheme.parse_letter("Zllo")', "llo")
+    addTest(resultsTable, 'SmallScheme.parse_letter("zllo")', "llo")
+    addTest(resultsTable, 'SmallScheme.parse_letter("yllo")', "llo")
+    addTest(resultsTable, 'SmallScheme.parse_letter("?llo")', false)
+    addTest(resultsTable, 'SmallScheme.parse_specialInitial("?llo")', "llo")
+    addTest(resultsTable, 'SmallScheme.parse_specialInitial("Allo")', false)
+    addTest(resultsTable, 'SmallScheme.parse_specialInitial("&llo")', "llo")
+    // addTest(resultsTable, 'SmallScheme.tokenize("(print \\"hello world\\")")')
+    // addTest(resultsTable, 'SmallScheme.tokenize("(+ 1 2)")')
 }

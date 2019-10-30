@@ -14,7 +14,10 @@ const SchemeToken = {
     dot         : 13,
 }
 
+const SchemeSpecialLetters = "!$%&*/:<>?^_~"
+
 class SmallScheme {
+    // ---- atmosphere parsing ----
     static parse_whitespace(input) {
         if (input.length == 0)                      return false
         if (input[0] == " " || input[0] == "\t")    return input.substr(1)
@@ -36,6 +39,24 @@ class SmallScheme {
         if (out = SmallScheme.parse_comment(input))     return out
         else                                            return false
     }
+    // ---- identifier parsing ----
+    static parse_letter(input) {
+        let aCode = 97  //"a".charCodeAt(0)
+        let zCoxe = 122 //"z".charCodeAt(0)
+        if (input.length == 0)                          return false
+        let firstCode = input[0].toLowerCase().charCodeAt(0)
+        if (firstCode >= aCode && firstCode <= zCoxe)   return input.substr(1)
+        else                                            return false
+    }
+
+    static parse_specialInitial(input) {
+        if (input.length == 0)                              return false
+        let isSpecial = letter => letter == input[0]
+        if (SchemeSpecialLetters.split("").some(isSpecial)) return input.substr(1)
+        else                                                return false
+    }
+    
+    // ---- tokenization ----
     static tokenize(input) {
         
     }
