@@ -1,17 +1,17 @@
 const SchemeTokenTypes = {
-    id          : 0,
-    bool        : 1,
-    num         : 2,
-    character   : 3,
-    string      : 4,
-    lparen      : 5,
-    rparen      : 6,
-    lvec        : 7,
-    quote       : 9,
-    backquote   : 10,
-    comma       : 11,
-    splice      : 12,
-    dot         : 13,
+    lparen      : "lparen",
+    rparen      : "rparen",
+    lvec        : "lvec",
+    quote       : "quote",
+    backquote   : "backquote",
+    comma       : "comma",
+    splice      : "splice",
+    dot         : "dot",
+    id          : "id",
+    bool        : "bool",
+    num         : "num",
+    character   : "character",
+    string      : "string",
 }
 
 const SchemeSpecialLetters = "!$%&*/:<>?^_~"
@@ -23,10 +23,15 @@ const SchemeSyntaxicKeyword =
       SchemeExpressionKeyword.concat(["else", "=>", "define","unquote",
                                       "unquote-splicing"])
 
+const SchemeSimpleTokens = ["(" , ")" , "#(" , "'" , "`" , ",@" , ","  , "."]
+
 class SchemeToken {
     constructor(type, text) {
         this.type = type
         this.text = text
+    }
+    toString() {
+        return "SchemeToken("+this.type+", "+this.text+")"
     }
 }
 
@@ -49,16 +54,14 @@ class SmallScheme {
     }
     static lex_atmosphere(input) {
         let out = false
-        if (out = SmallScheme.lex_whitespace(input))    return out
-        if (out = SmallScheme.lex_comment(input))       return out
-        else                                            return false
+        if ((out = SmallScheme.lex_whitespace(input)) !== false)    return out
+        if ((out = SmallScheme.lex_comment(input)) !== false)       return out
+        else                                                        return false
     }
     static lex_intertokenSpace(input) {
-        let out = SmallScheme.lex_atmosphere(input)
-        if (!out) return input
-
-        let res = out
-        while (res = SmallScheme.lex_atmosphere(res)) {
+        let out = input
+        let res = input
+        while ((res = SmallScheme.lex_atmosphere(res)) !== false) {
             out = res
         }
         return out
@@ -80,9 +83,9 @@ class SmallScheme {
     }
     static lex_initial(input) {
         let out = false
-        if (out = SmallScheme.lex_letter(input))            return out
-        if (out = SmallScheme.lex_specialInitial(input))    return out
-        else                                                return false
+        if ((out = SmallScheme.lex_letter(input)) !== false)            return out
+        if ((out = SmallScheme.lex_specialInitial(input)) !== false)    return out
+        else                                                            return false
     }
     static lex_digit(input) {
         if (input.length == 0)  return false
@@ -107,22 +110,22 @@ class SmallScheme {
     }
     static lex_subsequent(input) {
         let out = false
-        if (out = SmallScheme.lex_initial(input))               return out
-        if (out = SmallScheme.lex_digit(input))                 return out
-        if (out = SmallScheme.lex_specialSubsequent(input))     return out
-        else                                                    return false
+        if ((out = SmallScheme.lex_initial(input)) !== false)           return out
+        if ((out = SmallScheme.lex_digit(input)) !== false)             return out
+        if ((out = SmallScheme.lex_specialSubsequent(input)) !== false) return out
+        else                                                            return false
     }
     static lex_identifier(input) {
         let out = SmallScheme.lex_initial(input)
-        if (!out) {
+        if (out === false) {
             out = SmallScheme.lex_peculiarSubsequent(input)
         } else {
             let res = out
-            while (res = SmallScheme.lex_subsequent(res)) {
+            while ((res = SmallScheme.lex_subsequent(res)) !== false) {
                 out = res
             }
         }
-        if (out) {
+        if (out !== false) {
             let idStr = input.substr(0, (input.length - out.length))
             return [new SchemeToken(SchemeTokenTypes.id, idStr), out]
         } else {
@@ -152,9 +155,64 @@ class SmallScheme {
         else
             return false
     }
+
+    // ---- number lexing ----
+    static lex_number(input) {
+        return false
+    }
+
+    // ---- char lexing ----
+    static lex_char(input) {
+        return false
+    }
+
+    // ---- char lexing ----
+    static lex_string(input) {
+        return false
+    }
+
+    // ---- simple token lexing ----
+    static lex_simple(input) {
+        let token       = false
+        let tokenIndex  = 0
+        for (let i=0; i<SchemeSimpleTokens.length; ++i) {
+            if (input.startsWith(SchemeSimpleTokens[i])) {
+                token = SchemeSimpleTokens[i]
+                tokenIndex = i
+                break
+            }
+        }
+        if (token) {
+            let tokenType = Object.values(SchemeTokenTypes)[tokenIndex]
+            return [new SchemeToken(tokenType, input.substr(0, token.length)), input.substr(token.length)]
+        }
+        else {
+            return false
+        }
+    }
     
     // ---- tokenization ----
+    static lex_token(input) {
+        return SmallScheme.lex_simple(input)
+            || SmallScheme.lex_identifier(input)
+            || SmallScheme.lex_bool(input)
+            || SmallScheme.lex_number(input)
+            || SmallScheme.lex_char(input)
+            || SmallScheme.lex_string(input)
+    }
+    
     static tokenize(input) {
-        
+        let tokens = []
+        let token = false
+        while (true) {
+            input = SmallScheme.lex_intertokenSpace(input)
+            if (token = SmallScheme.lex_token(input)) {
+                tokens.push(token[0])
+                input = token[1]
+            } else {
+                break
+            }
+        }
+        return tokens
     }
 }
