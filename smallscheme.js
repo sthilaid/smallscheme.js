@@ -35,7 +35,109 @@ class SchemeToken {
     }
 }
 
+function ParseResult(astNode, tokensLeft) {
+    this.astNode    = astNode
+    this.tokensLeft = tokensLeft
+}
+
+//-----------------------------------------------------------------------------
+// AST
+
+function validateASTChild(type, child, types) {
+    let isValid = types.some(t => child instanceof t)
+    if (!isValid)
+        throw new Error(type.name+" cannot accept "+child.constructor.name)
+}
+function isTokenOfType(token, tokenTypes) {
+    return tokenTypes.some(t => token.type == t)
+}
+
+class AST_bool {
+    constructor(val) { this.val = val }
+    static parse(tokens) {
+        if (tokens.length > 0 && isTokenOfType(tokens[0], [SchemeTokenTypes.bool])) {
+            let ast = new AST_bool(tokens[0].text.toLowerCase() == "#t")
+            return new ParseResult(ast, tokens.slice(1))
+        }
+        else
+            return false
+    }
+}
+class AST_num {
+    constructor(val) { this.val = val }
+    static parse(tokens) {
+        return false
+    }
+}
+class AST_char {
+    constructor(val) { this.val = val }
+    static parse(tokens) {
+        return false
+    }
+}
+class AST_str {
+    constructor(val) { this.val = val }
+    static parse(tokens) {
+        return false
+    }
+}
+class AST_selfEval {
+    constructor(val) {
+        validateASTChild(AST_selfEval, val, [AST_bool, AST_num, AST_char, AST_str])
+        this.val = val
+    }
+    static parse(tokens) {
+        let res = false
+        if (res = AST_bool.parse(tokens))
+            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
+        else if (res = AST_num.parse(tokens))
+            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
+        else if (res = AST_char.parse(tokens))
+            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
+        else if (res = AST_str.parse(tokens))
+            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
+        else
+            return false
+    }
+}
+class AST_quote { // todo
+    static parse(tokens) { return false }
+}
+
+class AST_lit {
+    constructor(val) {
+        validateASTChild(AST_lit, val, [AST_selfEval, AST_quote])
+        this.val = val
+    }
+    static parse(tokens) {
+        let res = false
+        if (res = AST_selfEval.parse(tokens))
+            return new ParseResult(new AST_lit(res.astNode), res.tokensLeft)
+        else if (res = AST_quote.parse(tokens))
+            return new ParseResult(new AST_lit(res.astNode), res.tokensLeft)
+        else
+            return false
+    }
+}
+
+class AST_exp {
+    constructor(exp) {
+        validateASTChild(AST_exp, exp, [AST_lit]) // add more later
+        this.exp = exp
+    }
+    static parse(tokens) {
+        let res = false
+        if (res = AST_lit.parse(tokens))
+            return new ParseResult(new AST_exp(res.astNode), res.tokensLeft)
+        else
+            return false
+    }
+}
+
 class SmallScheme {
+    //-----------------------------------------------------------------------------
+    // Toknization
+    
     // ---- atmosphere lexing ----
     static lex_whitespace(input) {
         if (input.length == 0)                      return false

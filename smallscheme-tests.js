@@ -27,7 +27,7 @@ function addLexTest(resultsTable, input, expectedResult) {
     let comment = isGood ? "" : "was expecting "+String(expectedResult)
     addTest(resultsTable, input, rest, isGood, comment)
 }
-function addParseTest(resultsTable, input, expectedResult) {
+function addTokenTest(resultsTable, input, expectedResult) {
     let val     = eval(input)
     let isGood  = val.length == expectedResult.length
     let error   = isGood ? "" : ("Expecting "+expectedResult.length+" tokens, got "+val.length)
@@ -44,6 +44,12 @@ function addParseTest(resultsTable, input, expectedResult) {
     addTest(resultsTable, input, "", isGood, comment)
 }
 
+function addParseTest(resultsTable, input) {
+    let val     = eval(input)
+    let isGood  = val !== false
+    let comment = isGood ? "" : ("could not parse input as "+input.name)
+    addTest(resultsTable, input, "", isGood, comment)
+}
 
 resultsTable = document.getElementById("results")
 if (resultsTable) {
@@ -124,10 +130,12 @@ if (resultsTable) {
     addLexTest(resultsTable, 'SmallScheme.lex_token("a.allo")', "")
     addLexTest(resultsTable, 'SmallScheme.lex_token("#B")', "")
 
-    addParseTest(resultsTable, 'SmallScheme.tokenize("(hello-world!)")',
+    addTokenTest(resultsTable, 'SmallScheme.tokenize("(hello-world!)")',
                  [SchemeTokenTypes.lparen, SchemeTokenTypes.id, SchemeTokenTypes.rparen])
 
-    addParseTest(resultsTable, 'SmallScheme.tokenize("#((<test>) .!allo)")',
+    addTokenTest(resultsTable, 'SmallScheme.tokenize("#((<test>) .!allo)")',
                  [SchemeTokenTypes.lvec, SchemeTokenTypes.lparen, SchemeTokenTypes.id, SchemeTokenTypes.rparen,
                   SchemeTokenTypes.dot, SchemeTokenTypes.id, SchemeTokenTypes.rparen])
+
+    addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("#T"))')
 }
