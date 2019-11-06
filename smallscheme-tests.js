@@ -47,7 +47,7 @@ function addTokenTest(resultsTable, input, expectedResult) {
 function addParseTest(resultsTable, input) {
     let val     = eval(input)
     let isGood  = val !== false
-    let comment = isGood ? "" : ("could not parse input as "+input.name)
+    let comment = isGood ? "" : ("could not parse input")
     addTest(resultsTable, input, "", isGood, comment)
 }
 
@@ -137,5 +137,14 @@ if (resultsTable) {
                  [SchemeTokenTypes.lvec, SchemeTokenTypes.lparen, SchemeTokenTypes.id, SchemeTokenTypes.rparen,
                   SchemeTokenTypes.dot, SchemeTokenTypes.id, SchemeTokenTypes.rparen])
 
+    addParseTest(resultsTable, 'AST_var.parse(SmallScheme.tokenize("allo"))')
+    addParseTest(resultsTable, 'AST_var.parse(SmallScheme.tokenize("!allo"))')
+    addParseTest(resultsTable, 'AST_lit.parse(SmallScheme.tokenize("#f"))')
+    addParseTest(resultsTable, 'AST_lit.parse(SmallScheme.tokenize("#T"))')
+    addParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("(f)"))')
+    addParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("(f #t #b)"))')
+    addParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("(f a b c) e f"))')
     addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("#T"))')
+    addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("(f)"))')
+    addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("(f #f !notHello)"))')
 }

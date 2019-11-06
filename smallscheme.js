@@ -35,105 +35,6 @@ class SchemeToken {
     }
 }
 
-function ParseResult(astNode, tokensLeft) {
-    this.astNode    = astNode
-    this.tokensLeft = tokensLeft
-}
-
-//-----------------------------------------------------------------------------
-// AST
-
-function validateASTChild(type, child, types) {
-    let isValid = types.some(t => child instanceof t)
-    if (!isValid)
-        throw new Error(type.name+" cannot accept "+child.constructor.name)
-}
-function isTokenOfType(token, tokenTypes) {
-    return tokenTypes.some(t => token.type == t)
-}
-
-class AST_bool {
-    constructor(val) { this.val = val }
-    static parse(tokens) {
-        if (tokens.length > 0 && isTokenOfType(tokens[0], [SchemeTokenTypes.bool])) {
-            let ast = new AST_bool(tokens[0].text.toLowerCase() == "#t")
-            return new ParseResult(ast, tokens.slice(1))
-        }
-        else
-            return false
-    }
-}
-class AST_num {
-    constructor(val) { this.val = val }
-    static parse(tokens) {
-        return false
-    }
-}
-class AST_char {
-    constructor(val) { this.val = val }
-    static parse(tokens) {
-        return false
-    }
-}
-class AST_str {
-    constructor(val) { this.val = val }
-    static parse(tokens) {
-        return false
-    }
-}
-class AST_selfEval {
-    constructor(val) {
-        validateASTChild(AST_selfEval, val, [AST_bool, AST_num, AST_char, AST_str])
-        this.val = val
-    }
-    static parse(tokens) {
-        let res = false
-        if (res = AST_bool.parse(tokens))
-            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
-        else if (res = AST_num.parse(tokens))
-            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
-        else if (res = AST_char.parse(tokens))
-            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
-        else if (res = AST_str.parse(tokens))
-            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
-        else
-            return false
-    }
-}
-class AST_quote { // todo
-    static parse(tokens) { return false }
-}
-
-class AST_lit {
-    constructor(val) {
-        validateASTChild(AST_lit, val, [AST_selfEval, AST_quote])
-        this.val = val
-    }
-    static parse(tokens) {
-        let res = false
-        if (res = AST_selfEval.parse(tokens))
-            return new ParseResult(new AST_lit(res.astNode), res.tokensLeft)
-        else if (res = AST_quote.parse(tokens))
-            return new ParseResult(new AST_lit(res.astNode), res.tokensLeft)
-        else
-            return false
-    }
-}
-
-class AST_exp {
-    constructor(exp) {
-        validateASTChild(AST_exp, exp, [AST_lit]) // add more later
-        this.exp = exp
-    }
-    static parse(tokens) {
-        let res = false
-        if (res = AST_lit.parse(tokens))
-            return new ParseResult(new AST_exp(res.astNode), res.tokensLeft)
-        else
-            return false
-    }
-}
-
 class SmallScheme {
     //-----------------------------------------------------------------------------
     // Toknization
@@ -316,5 +217,183 @@ class SmallScheme {
             }
         }
         return tokens
+    }
+}
+
+//-----------------------------------------------------------------------------
+// Parsing
+
+function ParseResult(astNode, tokensLeft) {
+    this.astNode    = astNode
+    this.tokensLeft = tokensLeft
+}
+
+function validateASTChild(type, child, types) {
+    let isValid = types.some(t => child instanceof t)
+    if (!isValid)
+        throw new Error(type.name+" cannot accept "+child.constructor.name)
+}
+function isTokenOfType(token, tokenTypes) {
+    return tokenTypes.some(t => token.type == t)
+}
+
+class AST_var {
+    constructor(val) { this.val = val }
+    static parse(tokens) {
+        if (tokens.length < 1)                      return false
+        if (tokens[0].type !== SchemeTokenTypes.id) return false 
+        let isValid = SchemeSyntaxicKeyword.every(k => tokens[0].text != k)
+        if (!isValid) return false
+        else return new ParseResult(new AST_var(tokens[0].text), tokens.slice(1))
+    }
+}
+
+class AST_bool {
+    constructor(val) { this.val = val }
+    static parse(tokens) {
+        if (tokens.length > 0 && isTokenOfType(tokens[0], [SchemeTokenTypes.bool])) {
+            let ast = new AST_bool(tokens[0].text.toLowerCase() == "#t")
+            return new ParseResult(ast, tokens.slice(1))
+        }
+        else
+            return false
+    }
+}
+class AST_num {
+    constructor(val) { this.val = val }
+    static parse(tokens) {
+        return false
+    }
+}
+class AST_char {
+    constructor(val) { this.val = val }
+    static parse(tokens) {
+        return false
+    }
+}
+class AST_str {
+    constructor(val) { this.val = val }
+    static parse(tokens) {
+        return false
+    }
+}
+class AST_selfEval {
+    constructor(val) {
+        validateASTChild(AST_selfEval, val, [AST_bool, AST_num, AST_char, AST_str])
+        this.val = val
+    }
+    static parse(tokens) {
+        let res = false
+        if (res = AST_bool.parse(tokens))
+            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
+        else if (res = AST_num.parse(tokens))
+            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
+        else if (res = AST_char.parse(tokens))
+            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
+        else if (res = AST_str.parse(tokens))
+            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
+        else
+            return false
+    }
+}
+class AST_quote { // todo
+    static parse(tokens) { return false }
+}
+
+class AST_lit {
+    constructor(val) {
+        validateASTChild(AST_lit, val, [AST_selfEval, AST_quote])
+        this.val = val
+    }
+    static parse(tokens) {
+        let res = false
+        if (res = AST_selfEval.parse(tokens))
+            return new ParseResult(new AST_lit(res.astNode), res.tokensLeft)
+        else if (res = AST_quote.parse(tokens))
+            return new ParseResult(new AST_lit(res.astNode), res.tokensLeft)
+        else
+            return false
+    }
+}
+
+class AST_procCall {
+    constructor(func, args) {
+        validateASTChild(AST_procCall, func, [AST_exp])
+        args.every(arg => validateASTChild(AST_procCall, arg, [AST_exp]))
+        this.func = func
+        this.args = args
+    }
+    static parse(tokens) {
+        if (tokens.length < 3)                          return false
+        if (tokens[0].type != SchemeTokenTypes.lparen)  return false
+        let operatorRes = AST_exp.parse(tokens.slice(1))
+        if (operatorRes === false)                      return false
+        let operands        = []
+        let operandsTokens  = operatorRes.tokensLeft
+        let operandsRes     = false
+        while(operandsTokens.length > 0) {
+            let operandsRes = false
+            if (operandsTokens[0].type == SchemeTokenTypes.rparen)
+                break
+            else if (operandsRes = AST_exp.parse(operandsTokens)) {
+                operands.push(operandsRes.astNode)
+                operandsTokens = operandsRes.tokensLeft
+            } else {
+                return false
+            }
+        }
+        return new ParseResult(new AST_procCall(operatorRes.astNode, operands),
+                               operandsTokens)
+    }
+}
+
+class AST_formals {
+    constructor(vars, rest) {
+        vars.every(v => validateASTChild(AST_formals, v, AST_var))
+        if (rest) validateASTChild(AST_formals, rest, AST_var)
+        this.vars = vars
+        this.rest = rest
+    }
+    static parse(tokens) {
+        if (tokens.length == 0) return false
+        let vars = []
+        let rest = false
+        let tokensLeft = []
+        if (tokens[0].type == SchemeTokenTypes.lparen) {
+        } else {
+            let varAst = AST_var.parse(tokens)
+            if (varAst) {
+                vars = [varAst.astNode]
+                tokensLeft = varAst.tokensLeft
+            }
+        }
+    }
+}
+
+class AST_body {
+}
+
+class AST_lambda {
+    constructor(formals, body) {
+        validateASTChild(AST_lambda, formals, [AST_formals])
+        validateASTChild(AST_lambda, body, [AST_body])
+        this.formals = formals
+        this.body = body
+    }
+}
+
+class AST_exp {
+    constructor(exp) {
+        validateASTChild(AST_exp, exp, [AST_var, AST_lit, AST_procCall])
+        this.exp = exp
+    }
+    static parse(tokens) {
+        let res = false
+        if ((res = AST_var.parse(tokens))
+            || (res = AST_lit.parse(tokens))
+            || (res = AST_procCall.parse(tokens)))
+            return new ParseResult(new AST_exp(res.astNode), res.tokensLeft)
+        else
+            return false
     }
 }
