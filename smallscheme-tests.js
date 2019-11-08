@@ -44,11 +44,15 @@ function addTokenTest(resultsTable, input, expectedResult) {
     addTest(resultsTable, input, "", isGood, comment)
 }
 
-function addParseTest(resultsTable, input) {
+function addParseTest(resultsTable, input,
+                      test = (r => r !== false), failMsg = "could not parse input") {
     let val     = eval(input)
-    let isGood  = val !== false
-    let comment = isGood ? "" : ("could not parse input")
+    let isGood  = test(val)
+    let comment = isGood ? "" : failMsg
     addTest(resultsTable, input, "", isGood, comment)
+}
+function addNegativeParseTest(resultsTable, input, test = (r => r !== false)) {
+    addParseTest(resultsTable, input, (r => r === false), "Should not be parseable")
 }
 
 resultsTable = document.getElementById("results")
@@ -144,6 +148,13 @@ if (resultsTable) {
     addParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("(f)"))')
     addParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("(f #t #b)"))')
     addParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("(f a b c) e f"))')
+    addNegativeParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("()"))')
+    addParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("var"))')
+    addParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("(var)"))')
+    addParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("(v1 v2 v3)"))')
+    addParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("(v1 v2 . r)"))')
+    addNegativeParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("(v1 v2 . r no)"))')
+    addNegativeParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("( . r no)"))')
     addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("#T"))')
     addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("(f)"))')
     addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("(f #f !notHello)"))')
