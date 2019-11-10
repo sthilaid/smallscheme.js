@@ -54,6 +54,12 @@ function addParseTest(resultsTable, input,
 function addNegativeParseTest(resultsTable, input, test = (r => r !== false)) {
     addParseTest(resultsTable, input, (r => r === false), "Should not be parseable")
 }
+function addParsePrintTest(resultsTable, input, expected) {
+    let val     = eval(input)
+    let isGood  = val == expected
+    let comment = isGood ? "" : "Unexpected result, expecting "+expected
+    addTest(resultsTable, input, val, isGood, comment) 
+}
 
 resultsTable = document.getElementById("results")
 if (resultsTable) {
@@ -164,4 +170,8 @@ if (resultsTable) {
     addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("#T"))')
     addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("(f)"))')
     addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("(f #f !notHello)"))')
+
+    addParsePrintTest(resultsTable,
+                      'AST_exp.parse(SmallScheme.tokenize("((lambda (x . r) #t))")).astNode.print()',
+                     "((lambda (x . r) #t))") 
 }
