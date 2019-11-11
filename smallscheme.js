@@ -251,6 +251,9 @@ class AST_var {
         if (!isValid) return false
         else return new ParseResult(new AST_var(tokens[0].text), tokens.slice(1))
     }
+    static makeInternal(hint) {
+        return new AST_var("___internal___"+hint+"___"+Math.floor(Math.random()*999999))
+    }
     print() { return this.val }
 }
 
@@ -363,6 +366,25 @@ class AST_procCall {
         this.args.forEach(a => str += a.print() + " ")
         return str.slice(0,str.length-1) + ")"
     }
+    toCPS(k) {
+        // let funcKVar    = AST_var.makeInternal("funcKont")
+        // let argsKVars   = this.args.map(arg => AST_var.makeInternal("argKont"))
+        // argsKVars.push(funcKVar)
+        // let args        = this.args.slice(0)
+        // args.push(this.func)
+        
+        // let currentK    = new AST_lambda(new AST_formals([], false),
+                                         
+        //     new AST_procCall(k, new AST_procCall(funcKVar, argsKVars))
+                                                      
+        // for (let i=0; i<this.args.length; ++i) {
+        //     args[i].toCPS(new AST_lambda(new AST_formals([], false),
+        //                                  argsKVars[i],
+        //                                  currentK))
+        //     ))
+        // }
+        // this.func.toCPS(funcK)
+    }
 }
 
 class AST_formals {
@@ -416,6 +438,9 @@ class AST_formals {
         if (this.rest !== false) str += ". "+this.rest.print()
         return str + ")"
     }
+    toCPS(k) {
+        return this
+    }
 }
 
 class AST_definition {
@@ -457,14 +482,20 @@ class AST_body {
         str += this.body.print()
         return str
     }
+    toCPS(k) {
+        let cpsDefinitions = this.definitions // TODO
+        return new AST_body(cpsDefinitions, this.commands, this.body.toCPS(k))
+    }
 }
 
 class AST_lambda {
-    constructor(formals, body) {
+    constructor(formals, continuation, body) {
         validateASTChild(AST_lambda, formals, AST_formals)
+        if (continuation) validateASTChild(AST_lambda, continuation, AST_var)
         validateASTChild(AST_lambda, body, AST_body)
-        this.formals = formals
-        this.body = body
+        this.formals        = formals
+        this.continuation   = continuation
+        this.body           = body
     }
     static parse(tokens) {
         if (tokens.length < 6)                          return false
@@ -478,9 +509,14 @@ class AST_lambda {
         if (bodyResult === false || bodyResult.tokensLeft.length == 0)  return false
         if (bodyResult.tokensLeft[0].type != SchemeTokenTypes.rparen)   return false
 
-        return new ParseResult(new AST_lambda(formalsResult.astNode, bodyResult.astNode), bodyResult.tokensLeft)
+        return new ParseResult(new AST_lambda(formalsResult.astNode, false, bodyResult.astNode), bodyResult.tokensLeft)
     }
     print() { return "(lambda "+this.formals.print()+" "+this.body.print()+")" }
+    toCPS(k) {
+        let lambdaCont  = AST_var.makeInternal("lambdaK")
+        let cpsLambda   = new AST_lambda(this.formals, k, this.body.toCPS(lambdaCont))
+        return new AST_procCall(k, [cpsLambda])
+    }
 }
 
 class AST_exp {
@@ -499,4 +535,5 @@ class AST_exp {
             return false
     }
     print() { return this.exp.print() }
+    toCPS(k) { return this.exp.toCPS(k) }
 }
