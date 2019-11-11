@@ -242,6 +242,23 @@ function isTokenOfType(token, tokenTypes) {
     return tokenTypes.some(t => token.type == t)
 }
 
+function isSimpleExp(ast) {
+    let isComplex = (ast instanceof AST_procCall) || (ast instanceof AST_lambda)
+    return !isComplex
+}
+
+function validateSimpleExp(ast) {
+    if (!isSimpleExp(ast)) {
+        throw new Error("expecting simple exp for: "+ast.print())
+    }
+}
+
+function primordialK() {
+    let temp = AST_var.makeInternal("ret")
+    return new AST_lambda(new AST_formals([temp], false), false,
+                          new AST_body(false, false, temp))
+}
+
 class AST_var {
     constructor(val) { this.val = val }
     static parse(tokens) {
@@ -255,6 +272,9 @@ class AST_var {
         return new AST_var("___internal___"+hint+"___"+Math.floor(Math.random()*999999))
     }
     print() { return this.val }
+    toCPS(k) {
+        return new AST_procCall(k, [], this)
+    }
 }
 
 class AST_bool {
@@ -268,6 +288,9 @@ class AST_bool {
             return false
     }
     print() { return this.val ? "#t" : "#f" }
+    toCPS(k) {
+        return new AST_procCall(k, [], this)
+    }
 }
 class AST_num {
     constructor(val) { this.val = val }
@@ -275,6 +298,9 @@ class AST_num {
         return false
     }
     print() { return this.val }
+    toCPS(k) {
+        return new AST_procCall(k, [], this)
+    }
 }
 class AST_char {
     constructor(val) { this.val = val }
@@ -282,6 +308,9 @@ class AST_char {
         return false
     }
     print() { return this.val }
+    toCPS(k) {
+        return new AST_procCall(k, [], this)
+    }
 }
 class AST_str {
     constructor(val) { this.val = val }
@@ -289,54 +318,38 @@ class AST_str {
         return false
     }
     print() { return this.val }
+    toCPS(k) {
+        return new AST_procCall(k, [], this)
+    }
 }
 class AST_selfEval {
-    constructor(val) {
-        validateASTChild(AST_selfEval, val, [AST_bool, AST_num, AST_char, AST_str])
-        this.val = val
-    }
     static parse(tokens) {
-        let res = false
-        if (res = AST_bool.parse(tokens))
-            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
-        else if (res = AST_num.parse(tokens))
-            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
-        else if (res = AST_char.parse(tokens))
-            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
-        else if (res = AST_str.parse(tokens))
-            return new ParseResult(new AST_selfEval(res.astNode), res.tokensLeft)
-        else
-            return false
+        let res = (AST_bool.parse(tokens)
+                   || AST_num.parse(tokens)
+                   || AST_char.parse(tokens)
+                   || AST_str.parse(tokens))
+        return res
     }
-    print() { return this.val.print() }
 }
 class AST_quote { // todo
     static parse(tokens) { return false }
 }
 
 class AST_lit {
-    constructor(val) {
-        validateASTChild(AST_lit, val, [AST_selfEval, AST_quote])
-        this.val = val
-    }
     static parse(tokens) {
-        let res = false
-        if (res = AST_selfEval.parse(tokens))
-            return new ParseResult(new AST_lit(res.astNode), res.tokensLeft)
-        else if (res = AST_quote.parse(tokens))
-            return new ParseResult(new AST_lit(res.astNode), res.tokensLeft)
-        else
-            return false
+        let res = AST_selfEval.parse(tokens) || AST_quote.parse(tokens)
+        return res
     }
-    print() { return this.val.print() }
 }
 
 class AST_procCall {
-    constructor(func, args) {
-        validateASTChild(AST_procCall, func, AST_exp)
-        args.every(arg => validateASTChild(AST_procCall, arg, AST_exp))
-        this.func = func
-        this.args = args
+    constructor(func, args, contArg) {
+        // validateASTChild(AST_procCall, func, AST_exp)
+        // args.every(arg => validateASTChild(AST_procCall, arg, AST_exp))
+        // validate contArg is a lambda with only one arg
+        this.func       = func
+        this.args       = args
+        this.contArg    = contArg
     }
     static parse(tokens) {
         if (tokens.length < 3)                          return false
@@ -364,33 +377,41 @@ class AST_procCall {
         let str="("
         str += this.func.print()+" "
         this.args.forEach(a => str += a.print() + " ")
+        if (this.contArg) str += "["+this.contArg.print()+"] "
+
         return str.slice(0,str.length-1) + ")"
     }
     toCPS(k) {
-        // let funcKVar    = AST_var.makeInternal("funcKont")
-        // let argsKVars   = this.args.map(arg => AST_var.makeInternal("argKont"))
-        // argsKVars.push(funcKVar)
-        // let args        = this.args.slice(0)
-        // args.push(this.func)
-        
-        // let currentK    = new AST_lambda(new AST_formals([], false),
-                                         
-        //     new AST_procCall(k, new AST_procCall(funcKVar, argsKVars))
-                                                      
-        // for (let i=0; i<this.args.length; ++i) {
-        //     args[i].toCPS(new AST_lambda(new AST_formals([], false),
-        //                                  argsKVars[i],
-        //                                  currentK))
-        //     ))
-        // }
-        // this.func.toCPS(funcK)
+        if (!isSimpleExp(this.func)) {
+            let funcKVar = AST_var.makeInternal("funcKont")
+            let funcKont =
+                new AST_lambda(new AST_formals([funcKVar], false), false,
+                               new AST_body([], [],
+                                            new AST_procCall(funcKVar, this.args).toCPS(k)))
+            return this.func.toCPS(funcKont)
+        } else {
+            for (let i=0; i<this.args.length; ++i) {
+                if (!isSimpleExp(this.args[i])) {
+                    let argKVar = AST_var.makeInternal("argKont")
+                    let argList = this.args.slice(0)
+                    argList[i] = argKVar
+                    let argKont =
+                        new AST_lambda(new AST_formals([argKont], false), false,
+                               new AST_body([], [],
+                                            new AST_procCall(this.func, argList).toCPS(k)))
+                    return this.args[i].toCPS(argKont)
+                }
+            }
+            // if func and all vars are simple
+            return new AST_procCall(this.func, this.args, k)
+        }
     }
 }
 
 class AST_formals {
     constructor(vars, rest) {
-        if (vars) vars.every(v => validateASTChild(AST_formals, v, AST_var))
-        if (rest) validateASTChild(AST_formals, rest, AST_var)
+        // if (vars) vars.every(v => validateASTChild(AST_formals, v, AST_var))
+        // if (rest) validateASTChild(AST_formals, rest, AST_var)
         this.vars = vars
         this.rest = rest
     }
@@ -438,9 +459,6 @@ class AST_formals {
         if (this.rest !== false) str += ". "+this.rest.print()
         return str + ")"
     }
-    toCPS(k) {
-        return this
-    }
 }
 
 class AST_definition {
@@ -449,9 +467,9 @@ class AST_definition {
 
 class AST_body {
     constructor(definitions, commands, body) {
-        if (definitions) definitions.every(d=>validateASTChild(AST_body, d, AST_definition))
-        if (commands) commands.every(c =>validateASTChild(AST_body, c, AST_exp))
-        validateASTChild(AST_body, body, AST_exp)
+        // if (definitions) definitions.every(d=>validateASTChild(AST_body, d, AST_definition))
+        // if (commands) commands.every(c =>validateASTChild(AST_body, c, AST_exp))
+        // validateASTChild(AST_body, body, AST_exp)
         this.definitions    = definitions
         this.commands       = commands
         this.body           = body
@@ -484,18 +502,19 @@ class AST_body {
     }
     toCPS(k) {
         let cpsDefinitions = this.definitions // TODO
+        // TODO? chain commands in function calls?
         return new AST_body(cpsDefinitions, this.commands, this.body.toCPS(k))
     }
 }
 
 class AST_lambda {
-    constructor(formals, continuation, body) {
-        validateASTChild(AST_lambda, formals, AST_formals)
-        if (continuation) validateASTChild(AST_lambda, continuation, AST_var)
-        validateASTChild(AST_lambda, body, AST_body)
-        this.formals        = formals
-        this.continuation   = continuation
-        this.body           = body
+    constructor(formals, contVar, body) {
+        // validateASTChild(AST_lambda, formals, AST_formals)
+        // if (contVar) validateASTChild(AST_lambda, contVar, AST_var)
+        // validateASTChild(AST_lambda, body, AST_body)
+        this.formals    = formals
+        this.contVar    = contVar
+        this.body       = body
     }
     static parse(tokens) {
         if (tokens.length < 6)                          return false
@@ -511,29 +530,24 @@ class AST_lambda {
 
         return new ParseResult(new AST_lambda(formalsResult.astNode, false, bodyResult.astNode), bodyResult.tokensLeft)
     }
-    print() { return "(lambda "+this.formals.print()+" "+this.body.print()+")" }
+    print() {
+        let contVarStr = this.contVar ? " ["+this.contVar.print()+"]" : ""
+        return "(lambda "+this.formals.print()+contVarStr+" "+this.body.print()+")"
+    }
     toCPS(k) {
         let lambdaCont  = AST_var.makeInternal("lambdaK")
-        let cpsLambda   = new AST_lambda(this.formals, k, this.body.toCPS(lambdaCont))
-        return new AST_procCall(k, [cpsLambda])
+        let cpsLambda   = new AST_lambda(this.formals, lambdaCont,
+                                         this.body.toCPS(lambdaCont))
+        return new AST_procCall(k, [], cpsLambda)
     }
 }
 
 class AST_exp {
-    constructor(exp) {
-        validateASTChild(AST_exp, exp, [AST_var, AST_lit, AST_procCall, AST_lambda])
-        this.exp = exp
-    }
     static parse(tokens) {
-        let res = false
-        if ((res = AST_var.parse(tokens))
-            || (res = AST_lit.parse(tokens))
-            || (res = AST_procCall.parse(tokens))
-            || (res = AST_lambda.parse(tokens)))
-            return new ParseResult(new AST_exp(res.astNode), res.tokensLeft)
-        else
-            return false
+        let res = (AST_var.parse(tokens)
+                   || AST_lit.parse(tokens)
+                   || AST_procCall.parse(tokens)
+                   || AST_lambda.parse(tokens))
+        return res
     }
-    print() { return this.exp.print() }
-    toCPS(k) { return this.exp.toCPS(k) }
 }
