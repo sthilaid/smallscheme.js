@@ -72,16 +72,16 @@ function addParsePrintTest(resultsTable, input, expected) {
 }
 
 function addEvalTest(resultsTable, expression, expected) {
-    let val         = AST_exp.parse(SmallScheme.tokenize(expression)).astNode.eval({})
-    let expectedAST = AST_exp.parse(SmallScheme.tokenize(expected)).astNode
+    let val         = smallSchemeEval(smallSchemeParse(expression))
+    let expectedAST = smallSchemeParse(expected)
     let isGood      = val.eqv(expectedAST)
     let comment     = isGood ? "" : "Unexpected value, expecting "+expected
     if (isGood) ++evalTestPassCount
     addTest(resultsTable, expression, val.print(), isGood, comment, evalTestCount++)
 
-    let cpsExp          = AST_exp.parse(SmallScheme.tokenize(expression)).astNode.toCPS(primordialK())
-    let cpsVal          = cpsExp.eval({})
-    let cpsExpectedAST  = expectedAST.toCPS(primordialK()).eval({})
+    let cpsExp          = smallSchemeParse(expression).toCPS(primordialK())
+    let cpsVal          = smallSchemeEval(cpsExp)
+    let cpsExpectedAST  = smallSchemeEval(expectedAST.toCPS(primordialK()))
     let cpsIsGood       = cpsVal.eqv(cpsExpectedAST)
     let cpsComment      = cpsIsGood ? "" : "Unexpected value, expecting "+expected
     if (cpsIsGood) ++evalTestPassCount

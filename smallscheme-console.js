@@ -10,7 +10,7 @@ if (canvas)
         try {
             let exp     = AST_exp.parse(SmallScheme.tokenize(cmd)).astNode
             let cpsExp  = exp.toCPS(primordialK())
-            let val     = cpsExp.eval(env)
+            let val     = smallSchemeEval(cpsExp, env)
             return val.pprint()
         } catch (err) {
             if (err.name == "SmallSchemeError")

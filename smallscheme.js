@@ -441,10 +441,14 @@ class AST_procCall {
         }
     }
     eval(env) {
-        let scopeEnv = Object.assign({}, env)
-        let func = this.func.eval(scopeEnv)
-        let args = this.args.map(arg => arg.eval(scopeEnv))
-        let contArg = this.contArg ? this.contArg.eval(scopeEnv) : false
+        let isCPSExp = this.contArg
+        if (isCPSExp && this['isTopLevel'] === undefined)
+            return {env: env, exp: this} // trampoline descent
+
+        let scopeEnv    = Object.assign({}, env)
+        let func        = this.func.eval(scopeEnv)
+        let args        = this.args.map(arg => arg.eval(scopeEnv))
+        let contArg     = this.contArg ? this.contArg.eval(scopeEnv) : false
 
         if (!(func instanceof AST_lambda)) 
             throw new SmallSchemeError("Invalid procedure call, invalid operator: "+func.print())
@@ -532,6 +536,7 @@ class AST_formals {
         let str = "("
         this.vars.forEach(v => str += v.print() + " ")
         if (this.rest !== false) str += ". "+this.rest.print()+" "
+        if (str.length == 1) str += " "
         return str.slice(0,str.length-1) + ")"
     }
     eqv(ast) {
@@ -679,4 +684,27 @@ class AST_exp {
     static validate(node) {
         return AST_exp.types().some(t => t.validate(tokens))
     }
+}
+
+//-----------------------------------------------------------------------------
+// evaluation trampoline
+
+function smallSchemeParse(exp) {
+    return AST_exp.parse(SmallScheme.tokenize(exp)).astNode
+}
+
+function smallSchemeEval(ast, env={}) {
+    let result = false
+    do
+    {
+        ast.isTopLevel = true
+        result = ast.eval(env)
+        if (result['env'] !== undefined && result['exp'] !== undefined) {
+            env = result.env
+            ast = result.exp
+        } else {
+            ast = result
+        }
+    } while (ast instanceof AST_procCall)
+    return ast
 }
