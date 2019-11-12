@@ -14,6 +14,12 @@ const SchemeTokenTypes = {
     string      : "string",
 }
 
+function SmallSchemeError(msg, file, line) {
+    let error = new Error(msg, file, line)
+    error.name = "SmallSchemeError"
+    return error
+}
+
 const SchemeSpecialLetters = "!$%&*/:<>?^_~"
 const SchemeSpecialSubsequent = "+-.@"
 const SchemeExpressionKeyword = ["quote", "lambda", "if", "set!", "begin",
@@ -241,7 +247,7 @@ function validateASTChild(type, child, types) {
         isValid = child instanceof types
     }
     if (!isValid)
-        throw new Error(type.name+" cannot accept "+child.constructor.name)
+        throw new SmallSchemeError(type.name+" cannot accept "+child.constructor.name)
 }
 function isTokenOfType(token, tokenTypes) {
     return tokenTypes.some(t => token.type == t)
@@ -254,7 +260,7 @@ function isSimpleExp(ast) {
 
 function validateSimpleExp(ast) {
     if (!isSimpleExp(ast)) {
-        throw new Error("expecting simple exp for: "+ast.print())
+        throw new SmallSchemeError("expecting simple exp for: "+ast.print())
     }
 }
 
@@ -282,7 +288,7 @@ class AST_var {
     }
     eval(env) {
         if (env[this.val] === undefined) 
-            throw new Error("undefined variable "+this.val)
+            throw new SmallSchemeError("undefined variable "+this.val)
         else
             return env[this.val]
     }
@@ -436,17 +442,17 @@ class AST_procCall {
         let contArg = this.contArg ? this.contArg.eval(scopeEnv) : false
 
         if (!(func instanceof AST_lambda)) 
-            throw new Error("Invalid procedure call, invalid operator: "+func.print())
+            throw new SmallSchemeError("Invalid procedure call, invalid operator: "+func.print())
 
         if (func.formals.rest) {
             if (func.formals.vars.length > args.length)
-                throw new Error("Invalid procedure call, invalid operands count for: "+this.print())
+                throw new SmallSchemeError("Invalid procedure call, invalid operands count for: "+this.print())
         }
         else if (func.formals.vars.length != args.length)
-            throw new Error("Invalid procedure call, invalid operands count for: "+this.print())
+            throw new SmallSchemeError("Invalid procedure call, invalid operands count for: "+this.print())
 
         if (Boolean(func.contVar) != Boolean(contArg))
-            throw new Error("Invalid procedure call, continuation mismatch")
+            throw new SmallSchemeError("Invalid procedure call, continuation mismatch")
 
         let closureInstance = Object.assign({}, func.closure)
         for (let i=0; i<func.formals.vars.length; ++i)
