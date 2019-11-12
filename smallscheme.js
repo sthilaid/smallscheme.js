@@ -228,6 +228,11 @@ function ParseResult(astNode, tokensLeft) {
     this.tokensLeft = tokensLeft
 }
 
+function EvalResult(newEnv, value) {
+    this.env = newEnv
+    this.val = value
+}
+
 function validateASTChild(type, child, types) {
     let isValid = false
     if (Array.isArray(types)) {
@@ -255,7 +260,7 @@ function validateSimpleExp(ast) {
 
 function primordialK() {
     let temp = AST_var.makeInternal("primordial")
-    return new AST_lambda(new AST_formals([temp], false), false,
+    return new AST_lambda(new AST_formals([], false), temp,
                           new AST_body(false, false, temp))
 }
 
@@ -275,6 +280,12 @@ class AST_var {
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
+    eval(env) {
+        if (env[this.val] === undefined)
+            new Error("undefined variable "+this.val)
+        else
+            return env[this.val]
+    }
 }
 
 class AST_bool {
@@ -291,6 +302,7 @@ class AST_bool {
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
+    eval(env) { return this }
 }
 class AST_num {
     constructor(val) { this.val = val }
@@ -301,6 +313,7 @@ class AST_num {
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
+    eval(env) { return this }
 }
 class AST_char {
     constructor(val) { this.val = val }
@@ -311,6 +324,7 @@ class AST_char {
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
+    eval(env) { return this }
 }
 class AST_str {
     constructor(val) { this.val = val }
@@ -321,6 +335,7 @@ class AST_str {
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
+    eval(env) { return this }
 }
 class AST_selfEval {
     static parse(tokens) {
@@ -385,7 +400,8 @@ class AST_procCall {
         if (!isSimpleExp(this.func)) {
             let funcKVar = AST_var.makeInternal("funcKont")
             let funcKont =
-                new AST_lambda(new AST_formals([funcKVar], false), false,
+                new AST_lambda(new AST_formals([], false),
+                               funcKVar,
                                new AST_body([], [],
                                             new AST_procCall(funcKVar, this.args).toCPS(k)))
             return this.func.toCPS(funcKont)
@@ -406,6 +422,38 @@ class AST_procCall {
             return new AST_procCall(this.func, this.args, k)
         }
     }
+    eval(env) {
+        let scopeEnv = Object.assign({}, env)
+        let func = this.func.eval(scopeEnv)
+        let args = this.args.map(arg => arg.eval(scopeEnv))
+        let contArg = this.contArg ? this.contArg.eval(scopeEnv) : false
+
+        if (!(func instanceof AST_lambda)) 
+            throw new Error("Invalid procedure call, invalid operator: "+func.print())
+
+        if (func.formals.rest) {
+            if (func.formals.vars.length > args.length)
+                throw new Error("Invalid procedure call, invalid operands count for: "+this.print())
+        }
+        else if (func.formals.vars.length != args.length)
+            throw new Error("Invalid procedure call, invalid operands count for: "+this.print())
+
+        if (Boolean(func.contVar) != Boolean(contArg))
+            throw new Error("Invalid procedure call, continuation mismatch")
+
+        for (let i=0; i<func.formals.vars.length; ++i)
+            scopeEnv[func.formals.vars[i].val] = args[i]
+        
+        if (contArg)
+            scopeEnv[func.contVar.val] = contArg
+
+        if (func.body.definitions)  func.body.definitions.forEach(def => def.eval(scopeEnv))
+        if (func.body.commands)     func.body.commands.forEach(c => c.eval(scopeEnv))
+        let val = func.body.body.eval(scopeEnv)
+        Object.keys(env).forEach(k => env[k] = scopeEnv[k])
+        return val
+    }
+
 }
 
 class AST_formals {
@@ -539,6 +587,9 @@ class AST_lambda {
         let cpsLambda   = new AST_lambda(this.formals, lambdaCont,
                                          this.body.toCPS(lambdaCont))
         return new AST_procCall(k, [], cpsLambda)
+    }
+    eval(env) {
+        return this
     }
 }
 
