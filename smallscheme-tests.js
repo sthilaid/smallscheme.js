@@ -72,7 +72,7 @@ function addParsePrintTest(resultsTable, input, expected) {
 }
 
 function addEvalTest(resultsTable, expression, expected) {
-    let val         = smallSchemeEval(smallSchemeParse(expression))
+    let val         = smallSchemeEvalAST(smallSchemeParse(expression))
     let expectedAST = smallSchemeParse(expected)
     let isGood      = val.eqv(expectedAST)
     let comment     = isGood ? "" : "Unexpected value, expecting "+expected
@@ -80,8 +80,8 @@ function addEvalTest(resultsTable, expression, expected) {
     addTest(resultsTable, expression, val.print(), isGood, comment, evalTestCount++)
 
     let cpsExp          = smallSchemeParse(expression).toCPS(primordialK())
-    let cpsVal          = smallSchemeEval(cpsExp)
-    let cpsExpectedAST  = smallSchemeEval(expectedAST.toCPS(primordialK()))
+    let cpsVal          = smallSchemeEvalAST(cpsExp)
+    let cpsExpectedAST  = smallSchemeEvalAST(expectedAST.toCPS(primordialK()))
     let cpsIsGood       = cpsVal.eqv(cpsExpectedAST)
     let cpsComment      = cpsIsGood ? "" : "Unexpected value, expecting "+expected
     if (cpsIsGood) ++evalTestPassCount
