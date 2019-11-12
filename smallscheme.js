@@ -699,7 +699,7 @@ function smallSchemeParse(exp) {
     return parseResult.astNode
 }
 
-function smallSchemeEval(ast, env={}) {
+function smallSchemeEvalAST(ast, env={}) {
     let result = false
     do {
         ast.isTopLevel = true
@@ -712,4 +712,12 @@ function smallSchemeEval(ast, env={}) {
         }
     } while (ast instanceof AST_procCall)
     return ast
+}
+
+function smallSchemeEval(exp, env={}) {
+    return smallSchemeEvalAST(smallSchemeParse(exp), env)
+}
+
+function smallSchemeCPSEval(exp, env={}) {
+    return smallSchemeEvalAST(smallSchemeParse(exp).toCPS(primordialK()), env)
 }

@@ -10,7 +10,7 @@ if (canvas)
         try {
             let exp     = smallSchemeParse(cmd)
             let cpsExp  = exp.toCPS(primordialK())
-            let val     = smallSchemeEval(cpsExp, env)
+            let val     = smallSchemeEvalAST(cpsExp, env)
             return val.pprint()
         } catch (err) {
             if (err.name == "SmallSchemeError")
