@@ -8,7 +8,7 @@ if (canvas)
     consoleInstance = new Console(canvas, context, function(cmd){
         if (cmd == "") return cmd
         try {
-            let exp     = AST_exp.parse(SmallScheme.tokenize(cmd)).astNode
+            let exp     = smallSchemeParse(cmd)
             let cpsExp  = exp.toCPS(primordialK())
             let val     = smallSchemeEval(cpsExp, env)
             return val.pprint()

@@ -690,13 +690,18 @@ class AST_exp {
 // evaluation trampoline
 
 function smallSchemeParse(exp) {
-    return AST_exp.parse(SmallScheme.tokenize(exp)).astNode
+    let tokens = SmallScheme.tokenize(exp)
+    if (tokens === false)
+        throw new SmallSchemeError("Could not lex expression: "+exp+" (lexing not fully implemented yet)")
+    let parseResult = AST_exp.parse(tokens)
+    if (parseResult === false)
+        throw new SmallSchemeError("Could not parse expression: "+exp+" (parsing not fully implemented yet)")
+    return parseResult.astNode
 }
 
 function smallSchemeEval(ast, env={}) {
     let result = false
-    do
-    {
+    do {
         ast.isTopLevel = true
         result = ast.eval(env)
         if (result['env'] !== undefined && result['exp'] !== undefined) {
