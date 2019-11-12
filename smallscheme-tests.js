@@ -1,11 +1,17 @@
 
-let x = 0
+let lexTestCount = 0
+let lexTestPassCount = 0
+let parseTestCount = 0
+let parseTestPassCount = 0
+let evalTestCount = 0
+let evalTestPassCount = 0
 
-function addTest(resultsTable, input, rest, isGood, comment) {
+function addTest(resultsTable, input, rest, isGood, comment, id) {
     let testRow = resultsTable.insertRow(isGood ? -1 : 1)
+    testRow.className = "test-row"
     
     let testIdCell  = testRow.insertCell(-1)
-    testIdCell.innerText = "Test #"+(x++)
+    testIdCell.innerText = "Test #"+id
 
     let inputCell   = testRow.insertCell(-1)
     inputCell.innerText = input
@@ -25,7 +31,9 @@ function addLexTest(resultsTable, input, expectedResult) {
     let rest    = Array.isArray(val) ? val[1] : val
     let isGood  = rest == expectedResult
     let comment = isGood ? "" : "was expecting "+String(expectedResult)
-    addTest(resultsTable, input, rest, isGood, comment)
+    
+    if (isGood) ++lexTestPassCount
+    addTest(resultsTable, input, rest, isGood, comment, lexTestCount++)
 }
 function addTokenTest(resultsTable, input, expectedResult) {
     let val     = eval(input)
@@ -41,7 +49,8 @@ function addTokenTest(resultsTable, input, expectedResult) {
         }
     }
     let comment = error
-    addTest(resultsTable, input, "", isGood, comment)
+    if (isGood) ++lexTestPassCount
+    addTest(resultsTable, input, "", isGood, comment, lexTestCount++)
 }
 
 function addParseTest(resultsTable, input,
@@ -49,7 +58,8 @@ function addParseTest(resultsTable, input,
     let val     = eval(input)
     let isGood  = test(val)
     let comment = isGood ? "" : failMsg
-    addTest(resultsTable, input, "", isGood, comment)
+    if (isGood) parseTestPassCount++
+    addTest(resultsTable, input, "", isGood, comment, parseTestCount++)
 }
 function addNegativeParseTest(resultsTable, input, test = (r => r !== false)) {
     addParseTest(resultsTable, input, (r => r === false), "Should not be parseable")
@@ -61,117 +71,185 @@ function addParsePrintTest(resultsTable, input, expected) {
     addTest(resultsTable, input, val, isGood, comment) 
 }
 
-resultsTable = document.getElementById("results")
-if (resultsTable) {
-    addLexTest(resultsTable, 'SmallScheme.lex_comment("; adsasffdjjjj   ffff ;;  fff\\nhello")', "hello")
-    addLexTest(resultsTable, 'SmallScheme.lex_atmosphere(" hello")', "hello")
-    addLexTest(resultsTable, 'SmallScheme.lex_atmosphere("\thello")', "hello")
-    addLexTest(resultsTable, 'SmallScheme.lex_atmosphere(";ddddd ; \\nhello")', "hello")
-    addLexTest(resultsTable, 'SmallScheme.lex_atmosphere("- hello")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_intertokenSpace("\t\t \t  ;blabla\\nhello")', "hello")
-    addLexTest(resultsTable, 'SmallScheme.lex_intertokenSpace("hello")', "hello")
-    addLexTest(resultsTable, 'SmallScheme.lex_letter("Allo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_letter("allo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_letter("Zllo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_letter("zllo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_letter("yllo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_letter("?llo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_specialInitial("?llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_specialInitial("Allo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_specialInitial("&llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_initial("&llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_initial("allo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_initial("?llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_initial("1llo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_digit("1llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_digit("0llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_digit("94llo")', "4llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_digit("hell0")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_specialSubsequent("@llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_specialSubsequent(".llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_specialSubsequent("+llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_specialSubsequent("-llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_specialSubsequent("allo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_specialSubsequent("4llo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_peculiarSubsequent("+llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_peculiarSubsequent("-llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_peculiarSubsequent("...llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_peculiarSubsequent("..llo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_peculiarSubsequent(".llo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_peculiarSubsequent("4llo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_subsequent("4llo")', "llo")
-    addLexTest(resultsTable, 'SmallScheme.lex_subsequent("...allo")', "..allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("...allo rest")', "allo rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("!!allo rest")', " rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("<allo> rest")', " rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("+ rest")', " rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("+allo rest")', "allo rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("-allo rest")', "allo rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("!+allo rest")', " rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("allo+allo rest")', " rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("@allo rest")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier(".allo rest")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("allo.allo rest")', " rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("allo@allo rest")', " rest")
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("123allo rest")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_identifier("allo123 rest")', " rest")
-    // addLexTest(resultsTable, 'SmallScheme.lex_keyword("elserest")', "rest")
-    // addLexTest(resultsTable, 'SmallScheme.lex_keyword("quoterest")', "rest")
-    // addLexTest(resultsTable, 'SmallScheme.lex_keyword("=>rest")', "rest")
-    // addLexTest(resultsTable, 'SmallScheme.lex_keyword("quasiquot")', false)
-    // addLexTest(resultsTable, 'SmallScheme.lex_keyword("quasiquote")', "")
-    addLexTest(resultsTable, 'SmallScheme.lex_bool("#tallo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_bool("#fallo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_bool("#Fallo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_bool("#Jallo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_simple("(allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_simple(")allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_simple("#(allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_simple("\'allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_simple("`allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_simple(",allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_simple(",@allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_simple(".allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_simple("<allo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_simple("$allo")', false)
-    addLexTest(resultsTable, 'SmallScheme.lex_token("$allo")', "")
-    addLexTest(resultsTable, 'SmallScheme.lex_token("(allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_token(".allo")', "allo")
-    addLexTest(resultsTable, 'SmallScheme.lex_token("a.allo")', "")
-    addLexTest(resultsTable, 'SmallScheme.lex_token("#B")', "")
+function addEvalTest(resultsTable, expression, expected) {
+    let val         = AST_exp.parse(SmallScheme.tokenize(expression)).astNode.eval({})
+    let expectedAST = AST_exp.parse(SmallScheme.tokenize(expected)).astNode
+    let isGood      = val.eqv(expectedAST)
+    let comment     = isGood ? "" : "Unexpected value, expecting "+expected
+    if (isGood) ++evalTestPassCount
+    addTest(resultsTable, expression, val.print(), isGood, comment, evalTestCount++)
 
-    addTokenTest(resultsTable, 'SmallScheme.tokenize("(hello-world!)")',
+    let cpsExp          = AST_exp.parse(SmallScheme.tokenize(expression)).astNode.toCPS(primordialK())
+    let cpsVal          = cpsExp.eval({})
+    let cpsExpectedAST  = expectedAST.toCPS(primordialK()).eval({})
+    let cpsIsGood       = cpsVal.eqv(cpsExpectedAST)
+    let cpsComment      = cpsIsGood ? "" : "Unexpected value, expecting "+expected
+    if (cpsIsGood) ++evalTestPassCount
+    addTest(resultsTable, expression, cpsVal.print(), cpsIsGood, "[CPS] "+cpsComment, evalTestCount++) 
+}
+
+let lexTestTable = document.getElementById("lex-unit-tests-table")
+if (lexTestTable) {
+    addLexTest(lexTestTable, 'SmallScheme.lex_comment("; adsasffdjjjj   ffff ;;  fff\\nhello")', "hello")
+    addLexTest(lexTestTable, 'SmallScheme.lex_atmosphere(" hello")', "hello")
+    addLexTest(lexTestTable, 'SmallScheme.lex_atmosphere("\thello")', "hello")
+    addLexTest(lexTestTable, 'SmallScheme.lex_atmosphere(";ddddd ; \\nhello")', "hello")
+    addLexTest(lexTestTable, 'SmallScheme.lex_atmosphere("- hello")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_intertokenSpace("\t\t \t  ;blabla\\nhello")', "hello")
+    addLexTest(lexTestTable, 'SmallScheme.lex_intertokenSpace("hello")', "hello")
+    addLexTest(lexTestTable, 'SmallScheme.lex_letter("Allo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_letter("allo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_letter("Zllo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_letter("zllo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_letter("yllo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_letter("?llo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_specialInitial("?llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_specialInitial("Allo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_specialInitial("&llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_initial("&llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_initial("allo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_initial("?llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_initial("1llo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_digit("1llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_digit("0llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_digit("94llo")', "4llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_digit("hell0")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_specialSubsequent("@llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_specialSubsequent(".llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_specialSubsequent("+llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_specialSubsequent("-llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_specialSubsequent("allo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_specialSubsequent("4llo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_peculiarSubsequent("+llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_peculiarSubsequent("-llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_peculiarSubsequent("...llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_peculiarSubsequent("..llo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_peculiarSubsequent(".llo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_peculiarSubsequent("4llo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_subsequent("4llo")', "llo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_subsequent("...allo")', "..allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("...allo rest")', "allo rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("!!allo rest")', " rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("<allo> rest")', " rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("+ rest")', " rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("+allo rest")', "allo rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("-allo rest")', "allo rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("!+allo rest")', " rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("allo+allo rest")', " rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("@allo rest")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier(".allo rest")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("allo.allo rest")', " rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("allo@allo rest")', " rest")
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("123allo rest")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_identifier("allo123 rest")', " rest")
+    // addLexTest(lexTestTable, 'SmallScheme.lex_keyword("elserest")', "rest")
+    // addLexTest(lexTestTable, 'SmallScheme.lex_keyword("quoterest")', "rest")
+    // addLexTest(lexTestTable, 'SmallScheme.lex_keyword("=>rest")', "rest")
+    // addLexTest(lexTestTable, 'SmallScheme.lex_keyword("quasiquot")', false)
+    // addLexTest(lexTestTable, 'SmallScheme.lex_keyword("quasiquote")', "")
+    addLexTest(lexTestTable, 'SmallScheme.lex_bool("#tallo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_bool("#fallo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_bool("#Fallo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_bool("#Jallo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple("(allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple(")allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple("#(allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple("\'allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple("`allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple(",allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple(",@allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple(".allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple("<allo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_simple("$allo")', false)
+    addLexTest(lexTestTable, 'SmallScheme.lex_token("$allo")', "")
+    addLexTest(lexTestTable, 'SmallScheme.lex_token("(allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_token(".allo")', "allo")
+    addLexTest(lexTestTable, 'SmallScheme.lex_token("a.allo")', "")
+    addLexTest(lexTestTable, 'SmallScheme.lex_token("#B")', "")
+
+    addTokenTest(lexTestTable, 'SmallScheme.tokenize("(hello-world!)")',
                  [SchemeTokenTypes.lparen, SchemeTokenTypes.id, SchemeTokenTypes.rparen])
 
-    addTokenTest(resultsTable, 'SmallScheme.tokenize("#((<test>) .!allo)")',
+    addTokenTest(lexTestTable, 'SmallScheme.tokenize("#((<test>) .!allo)")',
                  [SchemeTokenTypes.lvec, SchemeTokenTypes.lparen, SchemeTokenTypes.id, SchemeTokenTypes.rparen,
                   SchemeTokenTypes.dot, SchemeTokenTypes.id, SchemeTokenTypes.rparen])
+    }
+let parseTestTable = document.getElementById("parse-unit-tests-table")
+if (parseTestTable) {
+    addParseTest(parseTestTable, 'AST_var.parse(SmallScheme.tokenize("allo"))')
+    addParseTest(parseTestTable, 'AST_var.parse(SmallScheme.tokenize("!allo"))')
+    addParseTest(parseTestTable, 'AST_lit.parse(SmallScheme.tokenize("#f"))')
+    addParseTest(parseTestTable, 'AST_lit.parse(SmallScheme.tokenize("#T"))')
+    addParseTest(parseTestTable, 'AST_procCall.parse(SmallScheme.tokenize("(f)"))')
+    addParseTest(parseTestTable, 'AST_procCall.parse(SmallScheme.tokenize("(f #t #b)"))')
+    addParseTest(parseTestTable, 'AST_procCall.parse(SmallScheme.tokenize("(f a b c) e f"))')
+    addNegativeParseTest(parseTestTable, 'AST_procCall.parse(SmallScheme.tokenize("()"))')
+    addParseTest(parseTestTable, 'AST_formals.parse(SmallScheme.tokenize("var"))')
+    addParseTest(parseTestTable, 'AST_formals.parse(SmallScheme.tokenize("(var)"))')
+    addParseTest(parseTestTable, 'AST_formals.parse(SmallScheme.tokenize("(v1 v2 v3)"))')
+    addParseTest(parseTestTable, 'AST_formals.parse(SmallScheme.tokenize("(v1 v2 . r)"))')
+    addNegativeParseTest(parseTestTable, 'AST_formals.parse(SmallScheme.tokenize("(v1 v2 . r no)"))')
+    addNegativeParseTest(parseTestTable, 'AST_formals.parse(SmallScheme.tokenize("( . r no)"))')
+    addParseTest(parseTestTable, 'AST_body.parse(SmallScheme.tokenize("v1 v2)"))')
+    addParseTest(parseTestTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda (x y z) v1 v2)"))')
+    addParseTest(parseTestTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda (x y . r) (v))"))')
+    addParseTest(parseTestTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda a b (v))"))')
+    addNegativeParseTest(parseTestTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda (x y . r v) (v))"))')
+    addNegativeParseTest(parseTestTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda x . a)"))')
+    addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("#T"))')
+    addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("(f)"))')
+    addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("(f #f !notHello)"))')
 
-    addParseTest(resultsTable, 'AST_var.parse(SmallScheme.tokenize("allo"))')
-    addParseTest(resultsTable, 'AST_var.parse(SmallScheme.tokenize("!allo"))')
-    addParseTest(resultsTable, 'AST_lit.parse(SmallScheme.tokenize("#f"))')
-    addParseTest(resultsTable, 'AST_lit.parse(SmallScheme.tokenize("#T"))')
-    addParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("(f)"))')
-    addParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("(f #t #b)"))')
-    addParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("(f a b c) e f"))')
-    addNegativeParseTest(resultsTable, 'AST_procCall.parse(SmallScheme.tokenize("()"))')
-    addParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("var"))')
-    addParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("(var)"))')
-    addParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("(v1 v2 v3)"))')
-    addParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("(v1 v2 . r)"))')
-    addNegativeParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("(v1 v2 . r no)"))')
-    addNegativeParseTest(resultsTable, 'AST_formals.parse(SmallScheme.tokenize("( . r no)"))')
-    addParseTest(resultsTable, 'AST_body.parse(SmallScheme.tokenize("v1 v2)"))')
-    addParseTest(resultsTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda (x y z) v1 v2)"))')
-    addParseTest(resultsTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda (x y . r) (v))"))')
-    addParseTest(resultsTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda a b (v))"))')
-    addNegativeParseTest(resultsTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda (x y . r v) (v))"))')
-    addNegativeParseTest(resultsTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda x . a)"))')
-    addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("#T"))')
-    addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("(f)"))')
-    addParseTest(resultsTable, 'AST_exp.parse(SmallScheme.tokenize("(f #f !notHello)"))')
-
-    addParsePrintTest(resultsTable,
+    addParsePrintTest(parseTestTable,
                       'AST_exp.parse(SmallScheme.tokenize("((lambda (x . r) #t))")).astNode.print()',
-                     "((lambda (x . r) #t))") 
+                     "((lambda (x . r) #t))")
+}
+
+let evalTestTable = document.getElementById("eval-unit-tests-table")
+if (evalTestTable) {
+    addEvalTest(evalTestTable, "#t", "#t")
+    addEvalTest(evalTestTable, "(lambda (x . r) x)", "(lambda (x . r) x)")
+    addEvalTest(evalTestTable, "((lambda (x y) x) #t #f)", "#t")
+    addEvalTest(evalTestTable, "((lambda (x y) y) #t #f)", "#f")
+    addEvalTest(evalTestTable, "((lambda (x y) (lambda (f) x)) #t #f)", "(lambda (f) x)")
+    addEvalTest(evalTestTable, "(((lambda (x y) (lambda (f) x)) #t #f) #f)", "#t")
+    addEvalTest(evalTestTable, "((lambda (x y) (lambda (f) (f x y))) #t #f)", "(lambda (f) (x y))")
+    addEvalTest(evalTestTable, "(((lambda (x y) (lambda (f) (f x y))) #t #f) (lambda (x y) x))", "#t")
+}
+
+
+function toggleDisplayElement(element, isShown) {
+    if (!element) return
+    element.style.display = isShown ? "block" : "none"
+}
+
+function addResult(table, text, count, passCount, testElement) {
+    let row                     = table.insertRow(-1)
+    let typeCell                = row.insertCell(-1)
+    typeCell.innerText          = text
+    let countCell               = row.insertCell(-1)
+    countCell.innerText         = count
+    let successCountCell        = row.insertCell(-1)
+    successCountCell.innerText  = passCount
+    successCountCell.style.color= (passCount == count ) ? "green" : "red"
+    let displayCell             = row.insertCell(-1)
+    let displayCheckBox         = document.createElement("input")
+    displayCheckBox.type        = "checkbox"
+    displayCheckBox.checked     = false
+    displayCheckBox.addEventListener("input", evt => toggleDisplayElement(testElement, displayCheckBox.checked))
+    displayCell.appendChild(displayCheckBox)
+
+    toggleDisplayElement(testElement, false)
+}
+
+let resultTable = document.getElementById("test-results-table")
+if (resultTable) {
+    let lexTestsDiv = document.getElementById("lex-tests")
+    addResult(resultTable, "Lexing unit tests", lexTestCount, lexTestPassCount, lexTestsDiv)
+
+    let parseTestsDiv = document.getElementById("parse-tests")
+    addResult(resultTable, "Parsign unit tests", parseTestCount, parseTestPassCount, parseTestsDiv)
+
+    let evalTestsDiv = document.getElementById("eval-tests")
+    addResult(resultTable, "Parsign unit tests", evalTestCount, evalTestPassCount, evalTestsDiv)
 }

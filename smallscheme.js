@@ -281,11 +281,12 @@ class AST_var {
         return new AST_procCall(k, [], this)
     }
     eval(env) {
-        if (env[this.val] === undefined)
-            new Error("undefined variable "+this.val)
+        if (env[this.val] === undefined) 
+            throw new Error("undefined variable "+this.val)
         else
             return env[this.val]
     }
+    eqv(ast) { return ast instanceof AST_var && this.val == ast.val }
 }
 
 class AST_bool {
@@ -303,6 +304,7 @@ class AST_bool {
         return new AST_procCall(k, [], this)
     }
     eval(env) { return this }
+    eqv(ast) { return ast instanceof AST_bool && this.val == ast.val }
 }
 class AST_num {
     constructor(val) { this.val = val }
@@ -314,6 +316,7 @@ class AST_num {
         return new AST_procCall(k, [], this)
     }
     eval(env) { return this }
+    eqv(ast) { return ast instanceof AST_num && this.val == ast.val }
 }
 class AST_char {
     constructor(val) { this.val = val }
@@ -325,6 +328,7 @@ class AST_char {
         return new AST_procCall(k, [], this)
     }
     eval(env) { return this }
+    eqv(ast) { return ast instanceof AST_char && this.val == ast.val }
 }
 class AST_str {
     constructor(val) { this.val = val }
@@ -336,6 +340,7 @@ class AST_str {
         return new AST_procCall(k, [], this)
     }
     eval(env) { return this }
+    eqv(ast) { return ast instanceof AST_str && this.val == ast.val }
 }
 class AST_selfEval {
     static parse(tokens) {
@@ -376,8 +381,10 @@ class AST_procCall {
         let operandsRes     = false
         while(operandsTokens.length > 0) {
             let operandsRes = false
-            if (operandsTokens[0].type == SchemeTokenTypes.rparen)
+            if (operandsTokens[0].type == SchemeTokenTypes.rparen) {
+                operandsTokens = operandsTokens.slice(1)
                 break
+            }
             else if (operandsRes = AST_exp.parse(operandsTokens)) {
                 operands.push(operandsRes.astNode)
                 operandsTokens = operandsRes.tokensLeft
@@ -412,7 +419,7 @@ class AST_procCall {
                     let argList = this.args.slice(0)
                     argList[i] = argKVar
                     let argKont =
-                        new AST_lambda(new AST_formals([argKont], false), false,
+                        new AST_lambda(new AST_formals([], false), argKVar,
                                new AST_body([], [],
                                             new AST_procCall(this.func, argList).toCPS(k)))
                     return this.args[i].toCPS(argKont)
@@ -441,19 +448,28 @@ class AST_procCall {
         if (Boolean(func.contVar) != Boolean(contArg))
             throw new Error("Invalid procedure call, continuation mismatch")
 
+        let closureInstance = Object.assign({}, func.closure)
         for (let i=0; i<func.formals.vars.length; ++i)
-            scopeEnv[func.formals.vars[i].val] = args[i]
+            closureInstance[func.formals.vars[i].val] = args[i]
         
         if (contArg)
-            scopeEnv[func.contVar.val] = contArg
+            closureInstance[func.contVar.val] = contArg
 
-        if (func.body.definitions)  func.body.definitions.forEach(def => def.eval(scopeEnv))
-        if (func.body.commands)     func.body.commands.forEach(c => c.eval(scopeEnv))
-        let val = func.body.body.eval(scopeEnv)
-        Object.keys(env).forEach(k => env[k] = scopeEnv[k])
+        if (func.body.commands)     func.body.commands.forEach(c => c.eval(closureInstance))
+        let val = func.body.body.eval(closureInstance)
+        Object.keys(env).forEach(k => env[k] = closureInstance[k])
         return val
     }
-
+    eqv(ast) {
+        if (!(ast instanceof AST_procCall))                 return false
+        if (!this.func.eqv(ast.func))                       return false
+        if (this.args.length != ast.args.length)            return false
+        for (let i=0; i<this.args.length; ++i) {
+            if (!this.args[i].eqv(ast.args[i]))             return false
+        }
+        if (Boolean(this.contArg) != Boolean(ast.contArg))  return false
+        return true
+    }
 }
 
 class AST_formals {
@@ -507,6 +523,14 @@ class AST_formals {
         if (this.rest !== false) str += ". "+this.rest.print()+" "
         return str.slice(0,str.length-1) + ")"
     }
+    eqv(ast) {
+        if (!(ast instanceof AST_formals))          return false
+        if (this.vars.length != ast.vars.length)    return false
+        for (let i=0; i<this.vars.length; ++i){
+            if (!this.vars[i].eqv(ast.vars[i]))     return false
+        }
+        return true
+    }
 }
 
 class AST_definition {
@@ -553,6 +577,17 @@ class AST_body {
         // TODO? chain commands in function calls?
         return new AST_body(cpsDefinitions, this.commands, this.body.toCPS(k))
     }
+    eqv(ast) {
+        if (!(ast instanceof AST_body)) return false
+        if (Boolean(this.commands) != Boolean(ast.commands) ||
+            this.commands.length != ast.commands.length) return false
+        if (this.commands) {
+            for (let i =0; i<this.commands.length; ++i) {
+                if (!this.commands[i].eqv(ast.commands[i])) return false
+            }
+        }
+        return this.body.eqv(ast.body)
+    }
 }
 
 class AST_lambda {
@@ -563,6 +598,7 @@ class AST_lambda {
         this.formals    = formals
         this.contVar    = contVar
         this.body       = body
+        this.closure    = {}
     }
     static parse(tokens) {
         if (tokens.length < 6)                          return false
@@ -579,8 +615,19 @@ class AST_lambda {
         return new ParseResult(new AST_lambda(formalsResult.astNode, false, bodyResult.astNode), bodyResult.tokensLeft.slice(1))
     }
     print() {
-        let contVarStr = this.contVar ? " ["+this.contVar.print()+"]" : ""
-        return "(lambda "+this.formals.print()+contVarStr+" "+this.body.print()+")"
+        let closureStr = ""
+        if (Object.keys(this.closure).length > 0) {
+            closureStr += "{"
+            for (let [k,v] of Object.entries(this.closure)) {
+                closureStr += k+":"+v.print()+","
+            }
+            closureStr = closureStr.slice(0, closureStr.length-1)+"}"
+        }
+        
+        let formalsStr = this.formals.print()
+        if (this.formals.length == 0) formalsStr = "()"
+        if (this.contVar) formalsStr = formalsStr.slice(0, formalsStr.length-1)+" ["+this.contVar.print()+"])"
+        return closureStr+"(lambda "+formalsStr+" "+this.body.print()+")"
     }
     toCPS(k) {
         let lambdaCont  = AST_var.makeInternal("lambdaK")
@@ -589,16 +636,32 @@ class AST_lambda {
         return new AST_procCall(k, [], cpsLambda)
     }
     eval(env) {
-        return this
+        let newLambda = new AST_lambda(this.formals, this.contVar, this.body)
+        newLambda.closure = Object.assign({}, env)
+
+        // todo add definitions to closure
+        //if (func.body.definitions)  func.body.definitions.forEach(def => def.eval(scopeEnv))
+
+        return newLambda
+    }
+    eqv(ast) {
+        return ast instanceof AST_lambda
+            && this.formals.eqv(ast.formals)
+            && Boolean(this.contVar) == Boolean(ast.contVar)
+            // && this.body.eqv(ast.body)
     }
 }
 
 class AST_exp {
+    static types() { return [AST_var, AST_lit, AST_procCall, AST_lambda]}
     static parse(tokens) {
-        let res = (AST_var.parse(tokens)
-                   || AST_lit.parse(tokens)
-                   || AST_procCall.parse(tokens)
-                   || AST_lambda.parse(tokens))
-        return res
+        for (let t of AST_exp.types()) {
+            let res = t.parse(tokens)
+            if (res) return res
+        }
+        return false
+    }
+    static validate(node) {
+        return AST_exp.types().some(t => t.validate(tokens))
     }
 }

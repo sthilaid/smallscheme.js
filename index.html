@@ -1,12 +1,45 @@
 <html>
   <head>
     <title>SmallScheme Tests</title>
-    <script src="smallscheme.js"></script> 
+    <script src="smallscheme.js"></script>
+    <style>
+      table { border-collapse:collapse; }
+      .unit-tests-table {border:1px solid black; text-align:center; width:100%; table-layout: fixed;}
+      tr.test-row:nth-child(even) {background-color: #f2f2f2;}
+      .unit-tests-table-head {background-color:#dedede}
+      .results{text-align:center;}
+      .overview-head{padding:10px;}
+    </style>
   </head>
   <body>
-    <table id="results" style="border:1px solid black; border-collapse:collapse;">
-      <tr style="background-color:#dedede;"><th></th><th>command</th><th>eval result</th><th>test result</th><th>comments</th></tr>
+    <h1>Small Scheme Unit Tests</h1>
+    <h2>Tests Results Overview</h2>
+    <table id="test-results-table" class="results">
+      <tr>
+        <th class="overview-head">Test type</th>
+        <th class="overview-head">Unit test count</th>
+        <th class="overview-head">Tests passed count</th>
+        <th class="overview-head">Display Results</th>
+      </tr>
     </table>
+    <div id="lex-tests">
+      <h2>Lexing Unit Tests</h2>
+      <table id="lex-unit-tests-table" style="border:1px solid black; border-collapse:collapse;">
+        <tr style="background-color:#dedede;"><th>test id</th><th>command</th><th>eval result</th><th>test result</th><th>comments</th></tr>
+      </table>
+    </div>
+    <div id="parse-tests">
+      <h2>Parsing Unit Tests</h2>
+      <table id="parse-unit-tests-table" class="unit-tests-table">
+        <tr class="unit-tests-table-head"><th>test id</th><th>command</th><th>eval result</th><th>test result</th><th>comments</th></tr>
+      </table>
+    </div>
+    <div id="eval-tests">
+      <h2>Evaluation Unit Tests</h2>
+      <table id="eval-unit-tests-table" class="unit-tests-table">
+        <tr class="unit-tests-table-head"><th>test id</th><th>expression</th><th>eval result</th><th>test result</th><th>comments</th></tr>
+      </table>
+    </div>
     <script src="smallscheme-tests.js"></script>
   </body>
 </html>
