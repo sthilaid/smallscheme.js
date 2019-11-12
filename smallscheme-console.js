@@ -11,7 +11,7 @@ if (canvas)
             let exp     = AST_exp.parse(SmallScheme.tokenize(cmd)).astNode
             let cpsExp  = exp.toCPS(primordialK())
             let val     = cpsExp.eval(env)
-            return val.print()
+            return val.pprint()
         } catch (err) {
             if (err.name == "SmallSchemeError")
                 return "*ERROR* "+err.message

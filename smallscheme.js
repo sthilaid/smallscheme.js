@@ -283,6 +283,7 @@ class AST_var {
         return new AST_var("|"+hint+"_"+Math.floor(Math.random()*9999))
     }
     print() { return this.val }
+    pprint() { return this.val }
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
@@ -306,6 +307,7 @@ class AST_bool {
             return false
     }
     print() { return this.val ? "#t" : "#f" }
+    pprint() { return this.print() }
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
@@ -318,6 +320,7 @@ class AST_num {
         return false
     }
     print() { return this.val }
+    pprint() { return this.val }
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
@@ -330,6 +333,7 @@ class AST_char {
         return false
     }
     print() { return this.val }
+    pprint() { return this.val }
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
@@ -342,6 +346,7 @@ class AST_str {
         return false
     }
     print() { return this.val }
+    pprint() { return this.val }
     toCPS(k) {
         return new AST_procCall(k, [], this)
     }
@@ -635,6 +640,9 @@ class AST_lambda {
         if (this.contVar) formalsStr = formalsStr.slice(0, formalsStr.length-1)+" ["+this.contVar.print()+"])"
         return closureStr+"(lambda "+formalsStr+" "+this.body.print()+")"
     }
+    pprint() {
+        return "<procedure>"
+    }
     toCPS(k) {
         let lambdaCont  = AST_var.makeInternal("lambdaK")
         let cpsLambda   = new AST_lambda(this.formals, lambdaCont,
@@ -648,6 +656,7 @@ class AST_lambda {
         // todo add definitions to closure
         //if (func.body.definitions)  func.body.definitions.forEach(def => def.eval(scopeEnv))
 
+        // todo ensure all free variable are contained in this.closure
         return newLambda
     }
     eqv(ast) {
