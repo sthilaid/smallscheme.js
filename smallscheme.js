@@ -254,7 +254,7 @@ function validateSimpleExp(ast) {
 }
 
 function primordialK() {
-    let temp = AST_var.makeInternal("ret")
+    let temp = AST_var.makeInternal("primordial")
     return new AST_lambda(new AST_formals([temp], false), false,
                           new AST_body(false, false, temp))
 }
@@ -269,7 +269,7 @@ class AST_var {
         else return new ParseResult(new AST_var(tokens[0].text), tokens.slice(1))
     }
     static makeInternal(hint) {
-        return new AST_var("___internal___"+hint+"___"+Math.floor(Math.random()*999999))
+        return new AST_var("|"+hint+"_"+Math.floor(Math.random()*9999))
     }
     print() { return this.val }
     toCPS(k) {
@@ -456,8 +456,8 @@ class AST_formals {
         if (this.vars === false) return this.rest.print()
         let str = "("
         this.vars.forEach(v => str += v.print() + " ")
-        if (this.rest !== false) str += ". "+this.rest.print()
-        return str + ")"
+        if (this.rest !== false) str += ". "+this.rest.print()+" "
+        return str.slice(0,str.length-1) + ")"
     }
 }
 
@@ -528,7 +528,7 @@ class AST_lambda {
         if (bodyResult === false || bodyResult.tokensLeft.length == 0)  return false
         if (bodyResult.tokensLeft[0].type != SchemeTokenTypes.rparen)   return false
 
-        return new ParseResult(new AST_lambda(formalsResult.astNode, false, bodyResult.astNode), bodyResult.tokensLeft)
+        return new ParseResult(new AST_lambda(formalsResult.astNode, false, bodyResult.astNode), bodyResult.tokensLeft.slice(1))
     }
     print() {
         let contVarStr = this.contVar ? " ["+this.contVar.print()+"]" : ""
