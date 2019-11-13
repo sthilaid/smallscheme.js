@@ -194,9 +194,16 @@ class Console
     }
 
     step(time) {
-        let shouldChangeState = time - this.inputAnimLastTime > this.inputAnimDT
+        let hasFocus = document.activeElement === this.canvas
+        let desiredState = this.inputAnimStr
+        if (hasFocus && (time - this.inputAnimLastTime > this.inputAnimDT)) {
+            desiredState = (this.inputAnimStr == "" ? "_" : "")
+        } else if (!hasFocus) {
+            desiredState = ""
+        }
+        let shouldChangeState = desiredState != this.inputAnimStr
         if (shouldChangeState) {
-            this.inputAnimStr = this.inputAnimStr == "" ? "_" : ""
+            this.inputAnimStr = desiredState
             this.inputAnimLastTime = time
             this.refresh()
         }
