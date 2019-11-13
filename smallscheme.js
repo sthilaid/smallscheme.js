@@ -457,10 +457,11 @@ class AST_procCall {
             if (func.formals.vars.length > args.length)
                 throw new SmallSchemeError("Invalid procedure call, invalid operands count for: "+this.print())
         }
-        else if (func.formals.vars.length != args.length)
+        else if (func.formals.vars && func.formals.vars.length != args.length)
             throw new SmallSchemeError("Invalid procedure call, invalid operands count for: "+this.print())
-
-        if (Boolean(func.contVar) != Boolean(contArg))
+        else if (func.formals.vars === false && args.length > 0)
+            throw new SmallSchemeError("Invalid procedure call, invalid operands count for: "+this.print())
+        else if (Boolean(func.contVar) != Boolean(contArg))
             throw new SmallSchemeError("Invalid procedure call, continuation mismatch")
 
         let closureInstance = Object.assign({}, func.closure)
@@ -672,8 +673,88 @@ class AST_lambda {
     }
 }
 
+class AST_void {
+    constructor() {}
+    print() { return "<void>" }
+    pprint() { return "<void>" }
+    toCPS(k) { return this }
+    eval(env) { return this }
+    eqv(ast) { return ast instanceof AST_void }
+}
+
+class AST_if {
+    constructor(test, consequent, alternate) {
+        this.test       = test
+        this.consequent = consequent
+        this.alternate  = alternate
+    }
+    static parse(tokens) {
+        if (tokens.length < 5)                          return false
+        if (tokens[0].type != SchemeTokenTypes.lparen)  return false
+        if (tokens[1].type != SchemeTokenTypes.id)      return false
+        if (tokens[1].text.toLowerCase() != "if")       return false
+        let testAst = AST_exp.parse(tokens.slice(2))
+        if (testAst === false)                          return false
+        let conseqAst = AST_exp.parse(testAst.tokensLeft)
+        if (conseqAst === false)                        return false
+        if (conseqAst.tokensLeft == 0)                  return false
+        let altAst = AST_exp.parse(conseqAst.tokensLeft)
+        if (altAst === false) {
+            if (conseqAst.tokensLeft[0].type == SchemeTokenTypes.rparen) {
+                return new ParseResult(new AST_if(testAst.astNode, conseqAst.astNode, false),
+                                       conseqAst.tokensLeft.slice(1))
+            } else return false
+        } else {
+            if (altAst.tokensLeft.length > 0 && altAst.tokensLeft[0].type == SchemeTokenTypes.rparen) {
+                return new ParseResult(new AST_if(testAst.astNode, conseqAst.astNode, altAst.astNode),
+                                       altAst.tokensLeft.slice(1))
+            } else return false
+        }
+    }
+    print() { return "(if "+this.test.print()+" "+this.consequent.print()
+              + (this.alternate ? " "+this.alternate.print() : "") + ")"
+    }
+    pprint() { return this.print() }
+    toCPS(k) {
+        if (isSimpleExp(this.test))
+            return new AST_if(this.test, this.consequent.toCPS(k), this.alternate ? this.alternate.toCPS(k) : false)
+        else {
+            let testKvar    = AST_var.makeInternal("testKvar")
+            let testCont    = new AST_lambda(new AST_formals(false, false),
+                                             testKvar,
+                                             new AST_body([], [], 
+                                                          new AST_if(testKvar,
+                                                                     this.consequent.toCPS(k),
+                                                                     this.alternate ? this.alternate.toCPS(k) : false)))
+            return this.test.toCPS(testCont)
+        }
+    }
+    eval(env) {
+        let scopeEnv = Object.assign({}, env)
+        let testVal = this.test.eval(scopeEnv)
+        let res = new AST_void()
+        let isFalse = testVal.eqv(new AST_bool(false))
+        if (isFalse) {
+            if (this.alternate) {
+                res = this.alternate.eval(scopeEnv)
+            } 
+        } else {
+            res = this.consequent.eval(scopeEnv)
+        }
+        Object.keys(env).forEach(k => env[k] = scopeEnv[k])
+        return res
+    }
+    eqv(ast) {
+        return ast instanceof AST_if
+            && this.test.eqv(ast.test)
+            && this.consequent.eqv(ast.consequent)
+            && Boolean(this.alternate) == Boolean(ast.alternate)
+            && (!Boolean(this.alternate) || this.alternate.eqv(ast.alternate))
+    }
+}
+
 class AST_exp {
-    static types() { return [AST_var, AST_lit, AST_procCall, AST_lambda]}
+    static types() { return [AST_var, AST_lit, AST_procCall, AST_lambda, AST_if]}
     static parse(tokens) {
         for (let t of AST_exp.types()) {
             let res = t.parse(tokens)
@@ -690,6 +771,8 @@ class AST_exp {
 // evaluation trampoline
 
 function smallSchemeParse(exp) {
+    if (exp == "") return new AST_void()
+    
     let tokens = SmallScheme.tokenize(exp)
     if (tokens === false)
         throw new SmallSchemeError("Could not lex expression: "+exp+" (lexing not fully implemented yet)")

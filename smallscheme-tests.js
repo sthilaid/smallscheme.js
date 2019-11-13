@@ -82,6 +82,8 @@ function addEvalTest(resultsTable, expression, expected) {
     let cpsExp          = smallSchemeParse(expression).toCPS(primordialK())
     let cpsVal          = smallSchemeEvalAST(cpsExp)
     let cpsExpectedAST  = smallSchemeEvalAST(expectedAST.toCPS(primordialK()))
+    // console.log(cpsVal)
+    // console.log(cpsExpectedAST)
     let cpsIsGood       = cpsVal.eqv(cpsExpectedAST)
     let cpsComment      = cpsIsGood ? "" : "Unexpected value, expecting "+expected
     if (cpsIsGood) ++evalTestPassCount
@@ -196,6 +198,9 @@ if (parseTestTable) {
     addParseTest(parseTestTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda a b (v))"))')
     addNegativeParseTest(parseTestTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda (x y . r v) (v))"))')
     addNegativeParseTest(parseTestTable, 'AST_lambda.parse(SmallScheme.tokenize("(lambda x . a)"))')
+    addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("(if #t good bad)"))')
+    addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("(if #t good)"))')
+    addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("(if (f x) good)"))')
     addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("#T"))')
     addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("(f)"))')
     addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("(f #f !notHello)"))')
@@ -215,6 +220,13 @@ if (evalTestTable) {
     addEvalTest(evalTestTable, "(((lambda (x y) (lambda (f) x)) #t #f) #f)", "#t")
     addEvalTest(evalTestTable, "((lambda (x y) (lambda (f) (f x y))) #t #f)", "(lambda (f) (x y))")
     addEvalTest(evalTestTable, "(((lambda (x y) (lambda (f) (f x y))) #t #f) (lambda (x y) x))", "#t")
+    addEvalTest(evalTestTable, "(((lambda (x) (lambda () x)) #t))", "#t")
+    addEvalTest(evalTestTable, "(if #t (lambda (x) x) #f)", "(lambda (x) x)")
+    addEvalTest(evalTestTable, "(if #f (lambda (x) x) #f)", "#f")
+    addEvalTest(evalTestTable, "(if ((lambda (x) x) #t) #f)", "#f")
+    addEvalTest(evalTestTable, "(if ((lambda (x) x) #f) #f)", "") // testing void
+    addEvalTest(evalTestTable, "((lambda (x) (if x #t #f)) (lambda (x) x))", "#t")
+    addEvalTest(evalTestTable, "((lambda (x) (if x #t #f)) #f)", "#f")
 }
 
 
