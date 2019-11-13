@@ -15,6 +15,7 @@ class Console
         this.inputAnimLastTime = 0
         this.inputAnimStr = ""
         this.historyBrosweIndex = 0
+        this.windowViewOffset = 0
 
         this.bannerMessage = " *** Welcome to super console 0.01c ***"
         this.inputAnimDT = 1000
@@ -116,6 +117,10 @@ class Console
         this.regionStart = 0
         this.regionEnd = -1
     }
+    getTextHeight() {
+        // extra lines: 1 line for the prompt and 2 for the banner
+        return (this.fontSize + this.heightPadding) * (this.history.length * 2 + 3)
+    }
 
     refresh() {
         if (!this.canvas || !this.context)
@@ -134,7 +139,10 @@ class Console
         const textHeightDelta = this.fontSize + this.heightPadding
         
         this.context.fillStyle = "green"
+        let textTotalHeight = this.getTextHeight()
+        let heightDiff      = this.canvas.height - textTotalHeight + this.windowViewOffset;
         var y = this.fontSize
+        if (heightDiff < 0) y += heightDiff
         this.context.fillText(this.bannerMessage, 0, y)
         y += textHeightDelta * 2 // add empty line
 
@@ -153,7 +161,6 @@ class Console
         }
         const cmd = this.getCmd()
         const isRegionActive = cmd.length > 0 && (this.regionStart != cmd.length || this.regionEnd != -1)
-        
         
         if (isRegionActive) {
             const regionEndValid = this.regionEnd != -1
@@ -204,6 +211,8 @@ function makeOnConsoleKey(consoleInstance)
         if (event.key == "Alt" || event.key == "Control" || event.key == "Shift")
             return
 
+        let scrollSpeed = Math.floor(consoleInstance.canvas.height * 0.5)
+        //console.log(event.key)
         if (event.ctrlKey) {
             if (event.key == "e")
                 consoleInstance.incRegionStart(99999999)
@@ -236,6 +245,12 @@ function makeOnConsoleKey(consoleInstance)
             consoleInstance.browseHistory(1)
         } else if (event.key == "Delete") {
             consoleInstance.removeRegionFromCmd(true, true)
+        } else if (event.key == "PageUp") {
+            let maxViewOffset = consoleInstance.getTextHeight() - consoleInstance.canvas.height
+            consoleInstance.windowViewOffset = Math.min(maxViewOffset,
+                                                        consoleInstance.windowViewOffset + scrollSpeed)
+        } else if (event.key == "PageDown") {
+            consoleInstance.windowViewOffset = Math.max(0, consoleInstance.windowViewOffset - scrollSpeed)
         } else if (event.key.length == 1 && !event.ctrlKey && !event.altKey) {
             consoleInstance.addToCmd(event.key)
         }

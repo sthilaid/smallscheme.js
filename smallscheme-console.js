@@ -6,7 +6,7 @@ if (canvas)
 
     var env={}
     consoleInstance = new Console(canvas, context, function(cmd){
-        if (cmd == "") return cmd
+        if (cmd == "") return " "
         try {
             let exp     = smallSchemeParse(cmd)
             let cpsExp  = exp.toCPS(primordialK())
