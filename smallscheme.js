@@ -427,6 +427,32 @@ class AST_lit {
     }
 }
 
+class AST_symbol {
+    static parse(tokens) {
+        return false
+    }
+}
+
+class AST_datum {
+    static simpleTypes() { return [AST_bool, AST_num, AST_char, AST_str, AST_symbol]}
+    static parseSimple(tokens) {
+        for (let t of AST_datum.simpleTypes()) {
+            let res = t.parse(tokens)
+            if (res) return res
+        }
+        return false
+    }
+    static parseComplex(tokens) {
+        return false // todo
+    }
+    static parse(tokens) {
+        let res = AST_datum.parseSimple(tokens)
+        if (res)                                        return res
+        else if (res = AST_datum.parseComplex(tokens))  return res
+        else                                            return false
+    }
+}
+
 class AST_procCall {
     constructor(func, args, contArg) {
         // validateASTChild(AST_procCall, func, AST_exp)

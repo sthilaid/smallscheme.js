@@ -258,11 +258,13 @@ function addResult(table, text, count, passCount, testElement) {
     successCountCell.innerText  = passCount
     successCountCell.style.color= (passCount == count ) ? "green" : "red"
     let displayCell             = row.insertCell(-1)
-    let displayCheckBox         = document.createElement("input")
-    displayCheckBox.type        = "checkbox"
-    displayCheckBox.checked     = false
-    displayCheckBox.addEventListener("input", evt => toggleDisplayElement(testElement, displayCheckBox.checked))
-    displayCell.appendChild(displayCheckBox)
+    if (testElement) {
+        let displayCheckBox         = document.createElement("input")
+        displayCheckBox.type        = "checkbox"
+        displayCheckBox.checked     = false
+        displayCheckBox.addEventListener("input", evt => toggleDisplayElement(testElement, displayCheckBox.checked))
+        displayCell.appendChild(displayCheckBox)
+    }
 
     toggleDisplayElement(testElement, false)
 }
@@ -277,4 +279,8 @@ if (resultTable) {
 
     let evalTestsDiv = document.getElementById("eval-tests")
     addResult(resultTable, "Parsign unit tests", evalTestCount, evalTestPassCount, evalTestsDiv)
+
+    const testCount     = lexTestCount+parseTestCount+evalTestCount
+    const testPassCount = lexTestPassCount+parseTestPassCount+evalTestPassCount
+    addResult(resultTable, "Total", testCount, testPassCount, undefined)
 }
