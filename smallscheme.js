@@ -31,6 +31,8 @@ const SchemeSyntaxicKeyword =
 
 const SchemeSimpleTokens = ["(" , ")" , "#(" , "'" , "`" , ",@" , ","  , "."]
 
+const SchemeCharNames = {"space" : " ", "newline" : "\n"}
+
 class SchemeToken {
     constructor(type, text) {
         this.type = type
@@ -171,12 +173,56 @@ class SmallScheme {
     }
 
     // ---- char lexing ----
-    static lex_char(input) {
+    static lex_charName(input) {
+        for (let [name, chr] of Object.entries(SchemeCharNames)) {
+            let l = name.length
+            if (input.length >= l && input.slice(0, l).toLowerCase() == name)
+                return [chr, input.slice(l)]
+        }
         return false
     }
+    static lex_char(input) {
+        if (input.length < 3 || input[0] != "#" || input[1] != "\\") return false
+        let inputRest = input.slice(2)
+        let charNameRes = SmallScheme.lex_charName(inputRest)
+        let chr = inputRest[0]
+        if (charNameRes !== false) {
+            chr = charNameRes[0]
+            inputRest = charNameRes[1]
+        }
+        else {
+            inputRest = inputRest.slice(1)
+        }
+        return [new SchemeToken(SchemeTokenTypes.character, chr), inputRest]
+    }
 
-    // ---- char lexing ----
+    // ---- string lexing ----
     static lex_string(input) {
+        if (input.length < 1 || input[0] != "\"") return false
+        let strContent = ""
+        let isEscaping = false
+        for (let i=1; i<input.length; ++i) {
+            if (input[i] == "\\") {
+                if (!isEscaping)
+                    isEscaping = true
+                else {
+                    strContent += "\\"
+                    isEscaping = false
+                }
+            }
+            else if (input[i] == "\"") {
+                if (isEscaping) {
+                    strContent += "\""
+                    isEscaping = false
+                } else {
+                    return [new SchemeToken(SchemeTokenTypes.string, strContent), input.slice(i+1)]
+                }
+            } else {
+                if (isEscaping)
+                    return false
+                strContent += input[i]
+            }
+        }
         return false
     }
 
@@ -330,6 +376,10 @@ class AST_num {
 class AST_char {
     constructor(val) { this.val = val }
     static parse(tokens) {
+        if (tokens.length > 0 && isTokenOfType(tokens[0], [SchemeTokenTypes.character])) {
+            let ast = new AST_char(tokens[0].text)
+            return new ParseResult(ast, tokens.slice(1))
+        }
         return false
     }
     print() { return this.val }
@@ -343,6 +393,10 @@ class AST_char {
 class AST_str {
     constructor(val) { this.val = val }
     static parse(tokens) {
+        if (tokens.length > 0 && isTokenOfType(tokens[0], [SchemeTokenTypes.string])) {
+            let ast = new AST_str(tokens[0].text)
+            return new ParseResult(ast, tokens.slice(1))
+        }
         return false
     }
     print() { return this.val }

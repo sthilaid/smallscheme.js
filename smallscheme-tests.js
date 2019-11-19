@@ -72,14 +72,15 @@ function addParsePrintTest(resultsTable, input, expected) {
 }
 
 function addEvalTest(resultsTable, expression, expected) {
-    let val         = smallSchemeEvalAST(smallSchemeParse(expression))
+    let ast         = smallSchemeParse(expression)
+    let val         = smallSchemeEvalAST(ast)
     let expectedAST = smallSchemeParse(expected)
     let isGood      = val.eqv(expectedAST)
     let comment     = isGood ? "" : "Unexpected value, expecting "+expected
     if (isGood) ++evalTestPassCount
     addTest(resultsTable, expression, val.print(), isGood, comment, evalTestCount++)
 
-    let cpsExp          = smallSchemeParse(expression).toCPS(primordialK())
+    let cpsExp          = ast.toCPS(primordialK())
     let cpsVal          = smallSchemeEvalAST(cpsExp)
     let cpsExpectedAST  = smallSchemeEvalAST(expectedAST.toCPS(primordialK()))
     // console.log(cpsVal)
@@ -168,6 +169,15 @@ if (lexTestTable) {
     addLexTest(lexTestTable, 'SmallScheme.lex_token(".allo")', "allo")
     addLexTest(lexTestTable, 'SmallScheme.lex_token("a.allo")', "")
     addLexTest(lexTestTable, 'SmallScheme.lex_token("#B")', "")
+    addLexTest(lexTestTable, 'SmallScheme.lex_charName("spaCEee")', "ee")
+    addLexTest(lexTestTable, 'SmallScheme.lex_charName("newLINE")', "")
+    addLexTest(lexTestTable, 'SmallScheme.lex_char("#\\\\a")', "")
+    addLexTest(lexTestTable, 'SmallScheme.lex_char("#\\\\!")', "")
+    addLexTest(lexTestTable, 'SmallScheme.lex_char("#\\\\~")', "")
+    addLexTest(lexTestTable, 'SmallScheme.lex_char("#\\\\123")', "23")
+    addLexTest(lexTestTable, 'SmallScheme.lex_string("\\\"allo\\\"123")', "123")
+    addLexTest(lexTestTable, 'SmallScheme.lex_string("\\\"this is \\\\\\\"a\\\\\\\" string\\\"123")', "123")
+    addLexTest(lexTestTable, 'SmallScheme.lex_string("\\\"this is a char #\\\\\\\\a in a string\\\"123")', "123")
 
     addTokenTest(lexTestTable, 'SmallScheme.tokenize("(hello-world!)")',
                  [SchemeTokenTypes.lparen, SchemeTokenTypes.id, SchemeTokenTypes.rparen])
@@ -227,6 +237,9 @@ if (evalTestTable) {
     addEvalTest(evalTestTable, "(if ((lambda (x) x) #f) #f)", "") // testing void
     addEvalTest(evalTestTable, "((lambda (x) (if x #t #f)) (lambda (x) x))", "#t")
     addEvalTest(evalTestTable, "((lambda (x) (if x #t #f)) #f)", "#f")
+    addEvalTest(evalTestTable, "\"hello\"", "\"hello\"")
+    addEvalTest(evalTestTable, "((lambda (x) \"hello\") #t)", "\"hello\"")
+    addEvalTest(evalTestTable, "((lambda (x y) y) #t #\\y)", "#\\y")
 }
 
 
