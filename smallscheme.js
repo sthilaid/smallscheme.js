@@ -856,7 +856,7 @@ class AST_lambda {
         this.formals        = formals
         this.contVar        = contVar
         this.body           = body
-        this.closure        = {}
+        this.closure        = new SmallSchemeEnv()
         this.isPrimordial   = false
     }
     static parse(tokens) {
@@ -883,6 +883,8 @@ class AST_lambda {
         return "<procedure>"
     }
     toCPS(k) {
+        if (this.contVar !== false) return this // already cps
+        
         let lambdaCont  = AST_var.makeInternal("lambdaK")
         let cpsLambda   = new AST_lambda(this.formals, lambdaCont,
                                          this.body.toCPS(lambdaCont))
@@ -1112,9 +1114,19 @@ function smallSchemeParseDatum(exp) {
     return parseResult.astNode
 }
 
+function makeCallCC() {
+    let kfun = AST_var.makeInternal("kfun")
+    let kvar = AST_var.makeInternal("kvar")
+    return new AST_lambda(new AST_formals([kfun], false),
+                          kvar,
+                          new AST_body([], [],
+                                       new AST_procCall(kfun, [kvar], kvar)))
+}
+
 function smallSchemeEnv() {
     let env = new SmallSchemeEnv()
     env.addBinding("nil", new AST_nil())
+    env.addBinding("call/cc", makeCallCC())
     return env
 }
 
