@@ -80,15 +80,18 @@ function addEvalTest(resultsTable, expression, expected, isExpectedDatum = false
     if (isGood) ++evalTestPassCount
     addTest(resultsTable, expression, val.print(), isGood, comment, evalTestCount++)
 
-    let cpsExp          = ast.toCPS(primordialK())
-    let cpsVal          = smallSchemeEvalAST(cpsExp)
-    let cpsExpectedAST  = smallSchemeEvalAST(expectedAST.toCPS(primordialK()))
-    // console.log(cpsVal)
-    // console.log(cpsExpectedAST)
-    let cpsIsGood       = cpsVal.eqv(cpsExpectedAST)
-    let cpsComment      = cpsIsGood ? "" : "Unexpected value, expecting "+expected
-    if (cpsIsGood) ++evalTestPassCount
-    addTest(resultsTable, expression, cpsVal.print(), cpsIsGood, "[CPS] "+cpsComment, evalTestCount++) 
+    if (!isExpectedDatum)
+    {
+        let cpsExp          = ast.toCPS(primordialK())
+        let cpsVal          = smallSchemeEvalAST(cpsExp)
+        let cpsExpectedAST  = smallSchemeEvalAST(expectedAST.toCPS(primordialK()))
+        // console.log(cpsVal)
+        // console.log(cpsExpectedAST)
+        let cpsIsGood       = cpsVal.eqv(cpsExpectedAST)
+        let cpsComment      = cpsIsGood ? "" : "Unexpected value, expecting "+expected
+        if (cpsIsGood) ++evalTestPassCount
+        addTest(resultsTable, expression, cpsVal.print(), cpsIsGood, "[CPS] "+cpsComment, evalTestCount++) 
+    }
 }
 
 let lexTestTable = document.getElementById("lex-unit-tests-table")

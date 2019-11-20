@@ -461,7 +461,7 @@ class AST_symbol {
         return new ParseResult(new AST_symbol(tokens[0].text), tokens.slice(1))
     }
     toCPS(k) { return new AST_procCall(k, [], this) }
-    eval(env) { return this }
+    eval(env) { return new AST_var(this.id).eval(env) }
     print() { return this.id }
     pprint() { return this.id }
     eqv(ast) { return ast instanceof AST_symbol && ast.id == this.id }
@@ -492,7 +492,7 @@ class AST_cons {
         let elem        = this
         let initLoop    = true
         while(true) {
-            if (!initLoop && thisNode === this) return true
+            if (!initLoop && elem === this) return true
             initLoop = false
             
             if (elem.cdr instanceof AST_nil) return true
@@ -512,7 +512,7 @@ class AST_cons {
             let elem = this
             let initLoop = true
             while(true) {
-                if (!initLoop && thisNode === this) return str.slice(0,str.length-1)+")"
+                if (!initLoop && elem === this) return str.slice(0,str.length-1)+")"
                 initLoop = false
                 str += elem.car.pprint()+" "
                 if (elem.cdr instanceof AST_nil) return str.slice(0,str.length-1)+")"
@@ -551,8 +551,23 @@ class AST_datum {
         }
         return false
     }
+    static abbrevPrefixTypes() { return [SchemeTokenTypes.quote,
+                                         // SchemeTokenTypes.backquote,
+                                         // SchemeTokenTypes.comma,
+                                         // SchemeTokenTypes.splice
+                                        ]}
+    static parseAbbrev(tokens) {
+        if (tokens.length < 2) return false
+        for (let prefType of AST_datum.abbrevPrefixTypes()) {
+            if (tokens[0].type == prefType) {
+                let datumRes = AST_datum.parse(tokens.slice(1))
+                if (!datumRes) return false
+                return new ParseResult(new AST_quote(datumRes.astNode), datumRes.tokensLeft)
+            }
+        }
+        return false
+    }
     static parseList(tokens) {
-        // ignoring the <abreviation> parsing for now
         if (tokens.length < 2 || tokens[0].type != SchemeTokenTypes.lparen)
             return false
         
@@ -582,10 +597,13 @@ class AST_datum {
         return false
     }
     static parseCompound(tokens) {
-        return AST_datum.parseList(tokens) || AST_datum.parseVec(tokens)
+        return AST_datum.parseList(tokens)
+            || AST_datum.parseVec(tokens)
     }
     static parse(tokens) {
-        return AST_datum.parseSimple(tokens) || AST_datum.parseCompound(tokens)
+        return AST_datum.parseSimple(tokens)
+            || AST_datum.parseAbbrev(tokens)
+            || AST_datum.parseCompound(tokens)
     }
 }
 
@@ -1010,7 +1028,12 @@ function smallSchemeParseDatum(exp) {
     return parseResult.astNode
 }
 
-function smallSchemeEvalAST(ast, env={}) {
+function smallSchemeEnv() {
+    return {"nil" : new AST_nil()
+           }
+}
+
+function smallSchemeEvalAST(ast, env=smallSchemeEnv()) {
     let result = false
     do {
         ast.isTopLevel = true
@@ -1025,10 +1048,10 @@ function smallSchemeEvalAST(ast, env={}) {
     return ast
 }
 
-function smallSchemeEval(exp, env={}) {
+function smallSchemeEval(exp, env=smallSchemeEnv()) {
     return smallSchemeEvalAST(smallSchemeParse(exp), env)
 }
 
-function smallSchemeCPSEval(exp, env={}) {
+function smallSchemeCPSEval(exp, env=smallSchemeEnv()) {
     return smallSchemeEvalAST(smallSchemeParse(exp).toCPS(primordialK()), env)
 }

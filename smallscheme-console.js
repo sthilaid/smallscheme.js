@@ -4,7 +4,7 @@ if (canvas)
 {
     context = canvas.getContext("2d")
 
-    var env={}
+    var env=smallSchemeEnv()
     consoleInstance = new Console(canvas, context, function(cmd){
         if (cmd == "") return " "
         try {
