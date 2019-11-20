@@ -286,10 +286,10 @@ if (resultTable) {
     addResult(resultTable, "Lexing unit tests", lexTestCount, lexTestPassCount, lexTestsDiv)
 
     let parseTestsDiv = document.getElementById("parse-tests")
-    addResult(resultTable, "Parsign unit tests", parseTestCount, parseTestPassCount, parseTestsDiv)
+    addResult(resultTable, "Parsing unit tests", parseTestCount, parseTestPassCount, parseTestsDiv)
 
     let evalTestsDiv = document.getElementById("eval-tests")
-    addResult(resultTable, "Parsign unit tests", evalTestCount, evalTestPassCount, evalTestsDiv)
+    addResult(resultTable, "Evaluation unit tests", evalTestCount, evalTestPassCount, evalTestsDiv)
 
     const testCount     = lexTestCount+parseTestCount+evalTestCount
     const testPassCount = lexTestPassCount+parseTestPassCount+evalTestPassCount
