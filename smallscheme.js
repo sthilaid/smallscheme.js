@@ -311,9 +311,9 @@ function validateSimpleExp(ast) {
 }
 
 function primordialK() {
-    let temp = AST_var.makeInternal("primordial")
-    let k = new AST_lambda(new AST_formals([], false), temp,
-                           new AST_body(false, false, temp))
+    let valVar  = AST_var.makeInternal("primordialVal")
+    let k = new AST_lambda(new AST_formals([valVar], false),
+                           new AST_body(false, false, valVar))
     k.isPrimordial = true
     return k
 }
@@ -333,7 +333,7 @@ class AST_var {
     print() { return this.val }
     pprint() { return this.val }
     toCPS(k) {
-        return new AST_procCall(k, [], this)
+        return new AST_procCall(k, [this])
     }
     eval(env) {
         let val = env.getValue(this.val)
@@ -358,7 +358,7 @@ class AST_bool {
     print() { return this.val ? "#t" : "#f" }
     pprint() { return this.print() }
     toCPS(k) {
-        return new AST_procCall(k, [], this)
+        return new AST_procCall(k, [this])
     }
     eval(env) { return this }
     eqv(ast) { return ast instanceof AST_bool && this.val == ast.val }
@@ -371,7 +371,7 @@ class AST_num {
     print() { return this.val }
     pprint() { return this.val }
     toCPS(k) {
-        return new AST_procCall(k, [], this)
+        return new AST_procCall(k, [this])
     }
     eval(env) { return this }
     eqv(ast) { return ast instanceof AST_num && this.val == ast.val }
@@ -388,7 +388,7 @@ class AST_char {
     print() { return this.val }
     pprint() { return this.val }
     toCPS(k) {
-        return new AST_procCall(k, [], this)
+        return new AST_procCall(k, [this])
     }
     eval(env) { return this }
     eqv(ast) { return ast instanceof AST_char && this.val == ast.val }
@@ -405,7 +405,7 @@ class AST_str {
     print() { return this.val }
     pprint() { return this.val }
     toCPS(k) {
-        return new AST_procCall(k, [], this)
+        return new AST_procCall(k, [this])
     }
     eval(env) { return this }
     eqv(ast) { return ast instanceof AST_str && this.val == ast.val }
@@ -441,7 +441,7 @@ class AST_quote {
             return false
         return new ParseResult(new AST_quote(datumRes.astNode), datumRes.tokensLeft.slice(1))
     }
-    toCPS(k) { return new AST_procCall(k, [], this) }
+    toCPS(k) { return new AST_procCall(k, [this]) }
     eval(env) { return this.datum }
     print() { return "'"+this.datum.print() }
     pprint() { return "'"+this.datum.pprint() }
@@ -463,7 +463,7 @@ class AST_symbol {
         if (tokens.length == 0 || tokens[0].type != SchemeTokenTypes.id) return false
         return new ParseResult(new AST_symbol(tokens[0].text), tokens.slice(1))
     }
-    toCPS(k) { return new AST_procCall(k, [], this) }
+    toCPS(k) { return new AST_procCall(k, [this]) }
     eval(env) { return new AST_var(this.id).eval(env) }
     print() { return this.id }
     pprint() { return this.id }
@@ -503,7 +503,7 @@ class AST_cons {
             else return false
         }
     }
-    toCPS(k) { return new AST_procCall(k, [], this) }
+    toCPS(k) { return new AST_procCall(k, [this]) }
     eval(env) { return this }
     print() { return "("+this.car.print()+" . "+this.cdr.print()+")" }
     pprint() {
@@ -611,13 +611,11 @@ class AST_datum {
 }
 
 class AST_procCall {
-    constructor(func, args, contArg) {
+    constructor(func, args) {
         // validateASTChild(AST_procCall, func, AST_exp)
         // args.every(arg => validateASTChild(AST_procCall, arg, AST_exp))
-        // validate contArg is a lambda with only one arg
         this.func       = func
         this.args       = args
-        this.contArg    = contArg
     }
     static parse(tokens) {
         if (tokens.length < 3)                          return false
@@ -647,44 +645,33 @@ class AST_procCall {
         let str="("
         str += this.func.print()+" "
         this.args.forEach(a => str += a.print() + " ")
-        if (this.contArg) str += "["+this.contArg.print()+"] "
 
         return str.slice(0,str.length-1) + ")"
     }
     toCPS(k) {
-        if (!isSimpleExp(this.func)) {
-            let funcKVar = AST_var.makeInternal("funcKont")
-            let funcKont =
-                new AST_lambda(new AST_formals([], false),
-                               funcKVar,
-                               new AST_body([], [],
-                                            new AST_procCall(funcKVar, this.args).toCPS(k)))
-            return this.func.toCPS(funcKont)
-        } else {
-            for (let i=0; i<this.args.length; ++i) {
-                if (!isSimpleExp(this.args[i])) {
-                    let argKVar = AST_var.makeInternal("argKont")
-                    let argList = this.args.slice(0)
-                    argList[i] = argKVar
-                    let argKont =
-                        new AST_lambda(new AST_formals([], false), argKVar,
-                               new AST_body([], [],
-                                            new AST_procCall(this.func, argList).toCPS(k)))
-                    return this.args[i].toCPS(argKont)
-                }
-            }
-            // if func and all vars are simple
-            return new AST_procCall(this.func, this.args, k)
+        let funcKVar = AST_var.makeInternal("funcKvar")
+        let argKvars = this.args.map(arg => AST_var.makeInternal("argKvar"))
+        let fKont = new AST_lambda(new AST_formals([funcKVar], false),
+                                   new AST_body([], [],
+                                                new AST_procCall(funcKVar, [k].concat(argKvars))))
+        fKont.isCPS = true
+        
+        let currentKbody = this.func.toCPS(fKont)
+        for (let i=0; i<this.args.length; ++i) {
+            let argKvar = argKvars[i]
+            let argK    = new AST_lambda(new AST_formals([argKvar], false),
+                                         new AST_body([], [], currentKbody))
+            argK.isCPS = true
+            currentKbody = this.args[i].toCPS(argK)
         }
+        return currentKbody
     }
     eval(env) {
-        let isCPSExp = this.contArg
-        if (isCPSExp && this['isTopLevel'] === undefined)
+        if (env.isCPSEval() && this['isTopLevel'] === undefined)
             return {env: env, exp: this} // trampoline descent
 
         let func        = this.func.eval(env)
         let args        = this.args.map(arg => arg.eval(env))
-        let contArg     = this.contArg ? this.contArg.eval(env) : false
 
         if (!(func instanceof AST_lambda)) 
             throw new SmallSchemeError("Invalid procedure call, invalid operator: "+func.print())
@@ -697,16 +684,11 @@ class AST_procCall {
             throw new SmallSchemeError("Invalid procedure call, invalid operands count for: "+this.print())
         else if (func.formals.vars === false && args.length > 0)
             throw new SmallSchemeError("Invalid procedure call, invalid operands count for: "+this.print())
-        else if (Boolean(func.contVar) != Boolean(contArg))
-            throw new SmallSchemeError("Invalid procedure call, continuation mismatch")
 
         let closureInstance = func.closure
         for (let i=0; i<func.formals.vars.length; ++i)
             closureInstance.addBinding(func.formals.vars[i].val, args[i])
         
-        if (contArg)
-            closureInstance.addBinding(func.contVar.val, contArg)
-
         if (func.body.commands)
             func.body.commands.forEach(c => c.eval(closureInstance))
 
@@ -720,7 +702,6 @@ class AST_procCall {
         for (let i=0; i<this.args.length; ++i) {
             if (!this.args[i].eqv(ast.args[i]))             return false
         }
-        if (Boolean(this.contArg) != Boolean(ast.contArg))  return false
         return true
     }
 }
@@ -832,7 +813,6 @@ class AST_body {
     }
     toCPS(k) {
         let cpsDefinitions = this.definitions // TODO
-        // TODO? chain commands in function calls?
         return new AST_body(cpsDefinitions, this.commands, this.body.toCPS(k))
     }
     eqv(ast) {
@@ -849,15 +829,15 @@ class AST_body {
 }
 
 class AST_lambda {
-    constructor(formals, contVar, body) {
+    constructor(formals, body) {
         // validateASTChild(AST_lambda, formals, AST_formals)
         // if (contVar) validateASTChild(AST_lambda, contVar, AST_var)
         // validateASTChild(AST_lambda, body, AST_body)
         this.formals        = formals
-        this.contVar        = contVar
         this.body           = body
         this.closure        = new SmallSchemeEnv()
         this.isPrimordial   = false
+        this.isCPS          = false
     }
     static parse(tokens) {
         if (tokens.length < 6)                          return false
@@ -871,42 +851,39 @@ class AST_lambda {
         if (bodyResult === false || bodyResult.tokensLeft.length == 0)  return false
         if (bodyResult.tokensLeft[0].type != SchemeTokenTypes.rparen)   return false
 
-        return new ParseResult(new AST_lambda(formalsResult.astNode, false, bodyResult.astNode), bodyResult.tokensLeft.slice(1))
+        return new ParseResult(new AST_lambda(formalsResult.astNode, bodyResult.astNode), bodyResult.tokensLeft.slice(1))
     }
     print() {
         let formalsStr = this.formals.print()
         if (this.formals.length == 0) formalsStr = "()"
-        if (this.contVar) formalsStr = formalsStr.slice(0, formalsStr.length-1)+" ["+this.contVar.print()+"])"
         return "(lambda "+formalsStr+" "+this.body.print()+")"
     }
     pprint() {
         return "<procedure>"
     }
     toCPS(k) {
-        if (this.contVar !== false) return this // already cps
+        if (this.isCPS !== false) return this // already cps
         
         let lambdaCont  = AST_var.makeInternal("lambdaK")
-        let cpsLambda   = new AST_lambda(this.formals, lambdaCont,
+        let cpsLambda   = new AST_lambda(new AST_formals([lambdaCont].concat(this.formals.vars),
+                                                         this.formals.rest),
                                          this.body.toCPS(lambdaCont))
-        return new AST_procCall(k, [], cpsLambda)
+        cpsLambda.isCPS = true
+        return new AST_procCall(k, [cpsLambda])
     }
     eval(env) {
-        let newLambda = new AST_lambda(this.formals, this.contVar, this.body)
-        let isCPS = this.contVar && !this.formals.vars && !this.formals.rest
-        newLambda.closure       = (isCPS || this.isPrimordial) ? env : env.deepCopy()
-        newLambda.isPrimordial  = this.isPrimordial
+        this.closure = (this.isCPS || this.isPrimordial) ? env : env.deepCopy()
 
         // todo add definitions to closure
         //if (func.body.definitions)  func.body.definitions.forEach(def => def.eval(scopeEnv))
 
         // todo ensure all free variable are contained in this.closure
-        return newLambda
+        return this
     }
     eqv(ast) {
         return ast instanceof AST_lambda
             && this.formals.eqv(ast.formals)
-            && Boolean(this.contVar) == Boolean(ast.contVar)
-            // && this.body.eqv(ast.body)
+            && this.body.eqv(ast.body)
     }
 }
 
@@ -914,7 +891,7 @@ class AST_void {
     constructor() {}
     print() { return "<void>" }
     pprint() { return "<void>" }
-    toCPS(k) { return this }
+    toCPS(k) { return new AST_procCall(k, [this]) }
     eval(env) { return this }
     eqv(ast) { return ast instanceof AST_void }
 }
@@ -957,12 +934,12 @@ class AST_if {
             return new AST_if(this.test, this.consequent.toCPS(k), this.alternate ? this.alternate.toCPS(k) : false)
         else {
             let testKvar    = AST_var.makeInternal("testKvar")
-            let testCont    = new AST_lambda(new AST_formals(false, false),
-                                             testKvar,
+            let testCont    = new AST_lambda(new AST_formals([testKvar], false),
                                              new AST_body([], [], 
                                                           new AST_if(testKvar,
                                                                      this.consequent.toCPS(k),
                                                                      this.alternate ? this.alternate.toCPS(k) : false)))
+            testCont.isCPS = true
             return this.test.toCPS(testCont)
         }
     }
@@ -1008,10 +985,9 @@ class AST_set {
     }
     toCPS(k) {
         let expKvar = AST_var.makeInternal("setexpKvar")
-        let expK    = new AST_lambda(new AST_formals(false, false),
-                                     expKvar,
+        let expK    = new AST_lambda(new AST_formals([expKvar], false),
                                      new AST_body([], [],
-                                                  new AST_procCall(k, [], new AST_set(this.variable, expKvar))))
+                                                  new AST_procCall(k, [new AST_set(this.variable, expKvar)])))
         return this.exp.toCPS(expK)
     }
     eval(env) {
@@ -1049,6 +1025,7 @@ class SmallSchemeEnv {
     constructor(parent = false) {
         this.bindings   = []
         this.parentEnv  = parent
+        this.isCPS      = false
     }
     findBinding(variable) {
         for (let binding of this.bindings) {
@@ -1088,6 +1065,14 @@ class SmallSchemeEnv {
         }
         return newEnv
     }
+    isCPSEval() {
+        let currentEnv = this
+        while(currentEnv) {
+            if (currentEnv.isCPS) return true
+            currentEnv = currentEnv.parentEnv
+        }
+        return false
+    }
 }
 
 function smallSchemeParse(exp) {
@@ -1115,12 +1100,14 @@ function smallSchemeParseDatum(exp) {
 }
 
 function makeCallCC() {
-    let kfun = AST_var.makeInternal("kfun")
     let kvar = AST_var.makeInternal("kvar")
-    return new AST_lambda(new AST_formals([kfun], false),
-                          kvar,
-                          new AST_body([], [],
-                                       new AST_procCall(kfun, [kvar], kvar)))
+    let kfun = AST_var.makeInternal("kfun")
+    let callcc = new AST_lambda(new AST_formals([kvar, kfun], false),
+                                new AST_body([], [],
+                                             new AST_procCall(kvar,
+                                                              [new AST_procCall(kfun, [kvar, kvar])])))
+    callcc.isCPS = true
+    return callcc
 }
 
 function smallSchemeEnv() {
@@ -1150,5 +1137,6 @@ function smallSchemeEval(exp, env=smallSchemeEnv()) {
 }
 
 function smallSchemeCPSEval(exp, env=smallSchemeEnv()) {
+    env.isCPS = true
     return smallSchemeEvalAST(smallSchemeParse(exp).toCPS(primordialK()), env)
 }
