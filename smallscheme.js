@@ -416,8 +416,33 @@ class AST_selfEval {
         return res
     }
 }
-class AST_quote { // todo
-    static parse(tokens) { return false }
+class AST_quote {
+    constructor(datum) {
+        this.datum = datum
+    }
+    static parse(tokens) {
+        if (tokens.length > 1 && tokens[0].type == SchemeTokenTypes.quote) {
+            let datumRes = AST_datum.parse(tokens.slice(1))
+            if (datumRes === false) return false
+            return new ParseResult(new AST_quote(datumRes.astNode), datumRes.tokensLeft)
+        }
+        else if (tokens.length < 4
+                 || tokens[0].type != SchemeTokenTypes.lparen 
+                 || tokens[1].type != SchemeTokenTypes.id
+                 || tokens[1].text.toLowerCase() != "quote"){
+            return false
+        }
+        let datumRes = AST_datum.parse(tokens.slice(2))
+        if (!datumRes) return false
+        if (datumRes.tokensLeft.length == 0 || datumRes.tokensLeft[0].type != SchemeTokenTypes.rparen)
+            return false
+        return new ParseResult(new AST_quote(datumRes.astNode), datumRes.tokensLeft.slice(1))
+    }
+    toCPS(k) { return new AST_procCall(k, [], this) }
+    eval(env) { return this.datum }
+    print() { return "'"+this.datum.print() }
+    pprint() { return "'"+this.datum.pprint() }
+    eqv(ast) { return ast instanceof AST_quote && this.datum.eqv(ast.datum) }
 }
 
 class AST_lit {
@@ -428,8 +453,92 @@ class AST_lit {
 }
 
 class AST_symbol {
+    constructor(id) {
+        this.id = id
+    }
     static parse(tokens) {
-        return false
+        if (tokens.length == 0 || tokens[0].type != SchemeTokenTypes.id) return false
+        return new ParseResult(new AST_symbol(tokens[0].text), tokens.slice(1))
+    }
+    toCPS(k) { return new AST_procCall(k, [], this) }
+    eval(env) { return this }
+    print() { return this.id }
+    pprint() { return this.id }
+    eqv(ast) { return ast instanceof AST_symbol && ast.id == this.id }
+}
+
+class AST_nil {
+    constructor(){}
+    eval(env) { return this }
+    print() { return "nil" }
+    pprint() { return "nil" }
+    eqv(ast) { return ast instanceof AST_nil }
+}
+
+class AST_cons {
+    constructor(car, cdr) {
+        this.car = car
+        this.cdr = cdr
+    }
+    static build(listElements, restElem) {
+        let cdr = restElem ? restElem : new AST_nil()
+        if (listElements.length == 0) return cdr
+        for (let i=listElements.length-1; i>=0; --i) {
+            cdr = new AST_cons(listElements[i], cdr)
+        }
+        return cdr
+    }
+    isList() {
+        let elem        = this
+        let initLoop    = true
+        while(true) {
+            if (!initLoop && thisNode === this) return true
+            initLoop = false
+            
+            if (elem.cdr instanceof AST_nil) return true
+            if (elem.cdr instanceof AST_cons) elem = elem.cdr
+            else return false
+        }
+    }
+    toCPS(k) { return new AST_procCall(k, [], this) }
+    eval(env) { return this }
+    print() { return "("+this.car.print()+" . "+this.cdr.print()+")" }
+    pprint() {
+        const isList = this.isList()
+        if (!isList) {
+            return "("+this.car.pprint()+" . "+this.cdr.pprint()+")"
+        } else {
+            let str = "("
+            let elem = this
+            let initLoop = true
+            while(true) {
+                if (!initLoop && thisNode === this) return str.slice(0,str.length-1)+")"
+                initLoop = false
+                str += elem.car.pprint()+" "
+                if (elem.cdr instanceof AST_nil) return str.slice(0,str.length-1)+")"
+                if (elem.cdr instanceof AST_cons) elem = elem.cdr
+                else return "<unknown list format>"
+            }            
+        }
+    }
+    eqv(ast) {
+        let thisNode = this
+        let otherNode= ast
+        let initLoop = true
+        while(true) {
+            if (!initLoop && thisNode === this) return true
+            initLoop = false
+            if (!(otherNode instanceof AST_cons)) return false
+            if (!thisNode.car.eqv(otherNode.car)) return false
+            if (thisNode.cdr instanceof AST_cons) {
+                if (otherNode instanceof AST_cons) {
+                    thisNode = thisNode.cdr
+                    otherNode = otherNode.cdr
+                } else return false
+            } else {
+                return thisNode.cdr.eqv(otherNode.cdr)
+            }
+        }
     }
 }
 
@@ -442,14 +551,41 @@ class AST_datum {
         }
         return false
     }
-    static parseComplex(tokens) {
-        return false // todo
+    static parseList(tokens) {
+        // ignoring the <abreviation> parsing for now
+        if (tokens.length < 2 || tokens[0].type != SchemeTokenTypes.lparen)
+            return false
+        
+        let elements        = []
+        let rest            = false
+        let elemResult      = true
+        let currentTokens   = tokens.slice(1)
+        while (elemResult = AST_datum.parse(currentTokens)) {
+            elements.push(elemResult.astNode)
+            currentTokens = elemResult.tokensLeft
+        }
+        if (currentTokens.lenght < 1) return false
+        if (currentTokens[0].type == SchemeTokenTypes.dot) {
+            let restResult = AST_datum.parse(currentTokens.slice(1))
+            if (restResult === false) return false
+            rest = restResult.astNode
+            currentTokens = restResult.tokensLeft
+        }
+        if (currentTokens.length < 1 || currentTokens[0].type != SchemeTokenTypes.rparen) {
+            return false
+        } else {
+            let consAst = AST_cons.build(elements, rest)
+            return new ParseResult(consAst, currentTokens.slice(1))
+        }
+    }
+    static parseVec(tokens) {
+        return false
+    }
+    static parseCompound(tokens) {
+        return AST_datum.parseList(tokens) || AST_datum.parseVec(tokens)
     }
     static parse(tokens) {
-        let res = AST_datum.parseSimple(tokens)
-        if (res)                                        return res
-        else if (res = AST_datum.parseComplex(tokens))  return res
-        else                                            return false
+        return AST_datum.parseSimple(tokens) || AST_datum.parseCompound(tokens)
     }
 }
 
@@ -857,6 +993,18 @@ function smallSchemeParse(exp) {
     if (tokens === false)
         throw new SmallSchemeError("Could not lex expression: "+exp+" (lexing not fully implemented yet)")
     let parseResult = AST_exp.parse(tokens)
+    if (parseResult === false)
+        throw new SmallSchemeError("Could not parse expression: "+exp+" (parsing not fully implemented yet)")
+    return parseResult.astNode
+}
+
+function smallSchemeParseDatum(exp) {
+    if (exp == "") return new AST_void()
+    
+    let tokens = SmallScheme.tokenize(exp)
+    if (tokens === false)
+        throw new SmallSchemeError("Could not lex expression: "+exp+" (lexing not fully implemented yet)")
+    let parseResult = AST_datum.parse(tokens)
     if (parseResult === false)
         throw new SmallSchemeError("Could not parse expression: "+exp+" (parsing not fully implemented yet)")
     return parseResult.astNode

@@ -71,10 +71,10 @@ function addParsePrintTest(resultsTable, input, expected) {
     addTest(resultsTable, input, val, isGood, comment) 
 }
 
-function addEvalTest(resultsTable, expression, expected) {
+function addEvalTest(resultsTable, expression, expected, isExpectedDatum = false) {
     let ast         = smallSchemeParse(expression)
     let val         = smallSchemeEvalAST(ast)
-    let expectedAST = smallSchemeParse(expected)
+    let expectedAST = isExpectedDatum ? smallSchemeParseDatum(expected) : smallSchemeParse(expected)
     let isGood      = val.eqv(expectedAST)
     let comment     = isGood ? "" : "Unexpected value, expecting "+expected
     if (isGood) ++evalTestPassCount
@@ -214,6 +214,10 @@ if (parseTestTable) {
     addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("#T"))')
     addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("(f)"))')
     addParseTest(parseTestTable, 'AST_exp.parse(SmallScheme.tokenize("(f #f !notHello)"))')
+    addParseTest(parseTestTable, 'AST_datum.parse(SmallScheme.tokenize("(a b c)"))')
+    addParseTest(parseTestTable, 'AST_datum.parse(SmallScheme.tokenize("(a b c . d)"))')
+    addParseTest(parseTestTable, 'AST_datum.parse(SmallScheme.tokenize("sym"))')
+    addParseTest(parseTestTable, 'AST_datum.parse(SmallScheme.tokenize("#f"))')
 
     addParsePrintTest(parseTestTable,
                       'AST_exp.parse(SmallScheme.tokenize("((lambda (x . r) #t))")).astNode.print()',
@@ -240,6 +244,10 @@ if (evalTestTable) {
     addEvalTest(evalTestTable, "\"hello\"", "\"hello\"")
     addEvalTest(evalTestTable, "((lambda (x) \"hello\") #t)", "\"hello\"")
     addEvalTest(evalTestTable, "((lambda (x y) y) #t #\\y)", "#\\y")
+    addEvalTest(evalTestTable, "'(a b c)", "(a b c)", true)
+    addEvalTest(evalTestTable, "'a", "a", true)
+    addEvalTest(evalTestTable, "'#t", "#t", true)
+    addEvalTest(evalTestTable, "(quote (a b c . d))", "(a b c . d)", true)
 }
 
 
