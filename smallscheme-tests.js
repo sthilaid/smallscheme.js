@@ -251,6 +251,10 @@ if (evalTestTable) {
     addEvalTest(evalTestTable, "'a", "a", true)
     addEvalTest(evalTestTable, "'#t", "#t", true)
     addEvalTest(evalTestTable, "(quote (a b c . d))", "(a b c . d)", true)
+    addEvalTest(evalTestTable, "((lambda (x) (set! x 'x) x) #t)", "x", true)
+    addEvalTest(evalTestTable, "((lambda (x) (lambda () (set! x 'x)) x) #t)", "#t")
+    addEvalTest(evalTestTable, "((lambda (x) (set! x 'x) x) #t)", "x", true)
+    addEvalTest(evalTestTable, "(set! y 'y)", "") // void
 }
 
 

@@ -312,8 +312,10 @@ function validateSimpleExp(ast) {
 
 function primordialK() {
     let temp = AST_var.makeInternal("primordial")
-    return new AST_lambda(new AST_formals([], false), temp,
-                          new AST_body(false, false, temp))
+    let k = new AST_lambda(new AST_formals([], false), temp,
+                           new AST_body(false, false, temp))
+    k.isPrimordial = true
+    return k
 }
 
 class AST_var {
@@ -334,10 +336,11 @@ class AST_var {
         return new AST_procCall(k, [], this)
     }
     eval(env) {
-        if (env[this.val] === undefined) 
+        let val = env.getValue(this.val)
+        if (!val)
             throw new SmallSchemeError("undefined variable "+this.val)
         else
-            return env[this.val]
+            return val
     }
     eqv(ast) { return ast instanceof AST_var && this.val == ast.val }
 }
@@ -679,10 +682,9 @@ class AST_procCall {
         if (isCPSExp && this['isTopLevel'] === undefined)
             return {env: env, exp: this} // trampoline descent
 
-        let scopeEnv    = Object.assign({}, env)
-        let func        = this.func.eval(scopeEnv)
-        let args        = this.args.map(arg => arg.eval(scopeEnv))
-        let contArg     = this.contArg ? this.contArg.eval(scopeEnv) : false
+        let func        = this.func.eval(env)
+        let args        = this.args.map(arg => arg.eval(env))
+        let contArg     = this.contArg ? this.contArg.eval(env) : false
 
         if (!(func instanceof AST_lambda)) 
             throw new SmallSchemeError("Invalid procedure call, invalid operator: "+func.print())
@@ -698,16 +700,17 @@ class AST_procCall {
         else if (Boolean(func.contVar) != Boolean(contArg))
             throw new SmallSchemeError("Invalid procedure call, continuation mismatch")
 
-        let closureInstance = Object.assign({}, func.closure)
+        let closureInstance = func.closure
         for (let i=0; i<func.formals.vars.length; ++i)
-            closureInstance[func.formals.vars[i].val] = args[i]
+            closureInstance.addBinding(func.formals.vars[i].val, args[i])
         
         if (contArg)
-            closureInstance[func.contVar.val] = contArg
+            closureInstance.addBinding(func.contVar.val, contArg)
 
-        if (func.body.commands)     func.body.commands.forEach(c => c.eval(closureInstance))
+        if (func.body.commands)
+            func.body.commands.forEach(c => c.eval(closureInstance))
+
         let val = func.body.body.eval(closureInstance)
-        Object.keys(env).forEach(k => env[k] = closureInstance[k])
         return val
     }
     eqv(ast) {
@@ -767,10 +770,14 @@ class AST_formals {
         }
     }
     print() {
-        if (this.vars === false) return this.rest.print()
+        if (this.vars === false) {
+            if (this.rest) return this.rest.print()
+            else return "()"
+        }
+        
         let str = "("
         this.vars.forEach(v => str += v.print() + " ")
-        if (this.rest !== false) str += ". "+this.rest.print()+" "
+        if (this.rest) str += ". "+this.rest.print()+" "
         if (str.length == 1) str += " "
         return str.slice(0,str.length-1) + ")"
     }
@@ -846,10 +853,11 @@ class AST_lambda {
         // validateASTChild(AST_lambda, formals, AST_formals)
         // if (contVar) validateASTChild(AST_lambda, contVar, AST_var)
         // validateASTChild(AST_lambda, body, AST_body)
-        this.formals    = formals
-        this.contVar    = contVar
-        this.body       = body
-        this.closure    = {}
+        this.formals        = formals
+        this.contVar        = contVar
+        this.body           = body
+        this.closure        = {}
+        this.isPrimordial   = false
     }
     static parse(tokens) {
         if (tokens.length < 6)                          return false
@@ -866,19 +874,10 @@ class AST_lambda {
         return new ParseResult(new AST_lambda(formalsResult.astNode, false, bodyResult.astNode), bodyResult.tokensLeft.slice(1))
     }
     print() {
-        let closureStr = ""
-        if (Object.keys(this.closure).length > 0) {
-            closureStr += "{"
-            for (let [k,v] of Object.entries(this.closure)) {
-                closureStr += k+":"+v.print()+","
-            }
-            closureStr = closureStr.slice(0, closureStr.length-1)+"}"
-        }
-        
         let formalsStr = this.formals.print()
         if (this.formals.length == 0) formalsStr = "()"
         if (this.contVar) formalsStr = formalsStr.slice(0, formalsStr.length-1)+" ["+this.contVar.print()+"])"
-        return closureStr+"(lambda "+formalsStr+" "+this.body.print()+")"
+        return "(lambda "+formalsStr+" "+this.body.print()+")"
     }
     pprint() {
         return "<procedure>"
@@ -891,7 +890,9 @@ class AST_lambda {
     }
     eval(env) {
         let newLambda = new AST_lambda(this.formals, this.contVar, this.body)
-        newLambda.closure = Object.assign({}, env)
+        let isCPS = this.contVar && !this.formals.vars && !this.formals.rest
+        newLambda.closure       = (isCPS || this.isPrimordial) ? env : env.deepCopy()
+        newLambda.isPrimordial  = this.isPrimordial
 
         // todo add definitions to closure
         //if (func.body.definitions)  func.body.definitions.forEach(def => def.eval(scopeEnv))
@@ -964,18 +965,16 @@ class AST_if {
         }
     }
     eval(env) {
-        let scopeEnv = Object.assign({}, env)
-        let testVal = this.test.eval(scopeEnv)
+        let testVal = this.test.eval(env)
         let res = new AST_void()
         let isFalse = testVal.eqv(new AST_bool(false))
         if (isFalse) {
             if (this.alternate) {
-                res = this.alternate.eval(scopeEnv)
+                res = this.alternate.eval(env)
             } 
         } else {
-            res = this.consequent.eval(scopeEnv)
+            res = this.consequent.eval(env)
         }
-        Object.keys(env).forEach(k => env[k] = scopeEnv[k])
         return res
     }
     eqv(ast) {
@@ -987,8 +986,48 @@ class AST_if {
     }
 }
 
+class AST_set {
+    constructor(variable, exp) {
+        this.variable = variable
+        this.exp = exp
+    }
+    static parse(tokens) {
+        if (tokens.length < 5)                          return false
+        if (tokens[0].type != SchemeTokenTypes.lparen)  return false
+        if (tokens[1].type != SchemeTokenTypes.id)      return false
+        if (tokens[1].text.toLowerCase() != "set!")     return false
+        let varRes = AST_var.parse(tokens.slice(2))
+        if (!varRes)                                    return false
+        let expRes = AST_exp.parse(varRes.tokensLeft)
+        if (!expRes)                                    return false
+        if (expRes.tokensLeft.length < 1)               return false
+        if (expRes.tokensLeft[0].type != SchemeTokenTypes.rparen)   return false
+        return new ParseResult(new AST_set(varRes.astNode, expRes.astNode), expRes.tokensLeft.slice(1))
+    }
+    toCPS(k) {
+        let expKvar = AST_var.makeInternal("setexpKvar")
+        let expK    = new AST_lambda(new AST_formals(false, false),
+                                     expKvar,
+                                     new AST_body([], [],
+                                                  new AST_procCall(k, [], new AST_set(this.variable, expKvar))))
+        return this.exp.toCPS(expK)
+    }
+    eval(env) {
+        let value = this.exp.eval(env)
+        env.addBinding(this.variable.val, value)
+        return new AST_void()
+    }
+    print() { "(set! "+this.variable.print()+" "+this.exp.print()+")" }
+    pprint() { "(set! "+this.variable.pprint()+" "+this.exp.pprint()+")" }
+    eqv(ast) {
+        return ast instanceof AST_set
+            && this.variable.eqv(ast.var)
+            && this.exp.eqv(ast.exp)
+    }
+}
+
 class AST_exp {
-    static types() { return [AST_var, AST_lit, AST_procCall, AST_lambda, AST_if]}
+    static types() { return [AST_var, AST_lit, AST_procCall, AST_lambda, AST_if, AST_set]}
     static parse(tokens) {
         for (let t of AST_exp.types()) {
             let res = t.parse(tokens)
@@ -1002,7 +1041,52 @@ class AST_exp {
 }
 
 //-----------------------------------------------------------------------------
-// evaluation trampoline
+// evaluation and trampoline
+
+class SmallSchemeEnv {
+    constructor(parent = false) {
+        this.bindings   = []
+        this.parentEnv  = parent
+    }
+    findBinding(variable) {
+        for (let binding of this.bindings) {
+            if (binding[0] == variable) {
+                return binding
+            }
+        }
+        return false
+    }
+    addBinding(variable, val) {
+        let existingBinding = this.findBinding(variable)
+        if (existingBinding) {
+            existingBinding[1] = val
+        } else {
+            this.bindings.push([variable, val])
+        }
+    }
+    getValue(variable) {
+        let currentEnv = this
+        while(currentEnv) {
+            let existingBinding = currentEnv.findBinding(variable)
+            if (existingBinding) return existingBinding[1]
+            else currentEnv = currentEnv.parentEnv
+        }
+        return false
+    }
+    deepCopy() {
+        let newEnv = new SmallSchemeEnv()
+        let currentEnv = this
+        while(currentEnv) {
+            for (let [v,val] of currentEnv.bindings) {
+                let vFound = newEnv.bindings.some(b => b[0] == v)
+                if (vFound) continue
+                newEnv.addBinding(v, val)
+            }
+            currentEnv = currentEnv.parentEnv
+        }
+        return newEnv
+    }
+}
 
 function smallSchemeParse(exp) {
     if (exp == "") return new AST_void()
@@ -1029,8 +1113,9 @@ function smallSchemeParseDatum(exp) {
 }
 
 function smallSchemeEnv() {
-    return {"nil" : new AST_nil()
-           }
+    let env = new SmallSchemeEnv()
+    env.addBinding("nil", new AST_nil())
+    return env
 }
 
 function smallSchemeEvalAST(ast, env=smallSchemeEnv()) {
