@@ -1,10 +1,11 @@
 
+var env=false
 canvas = document.getElementById("ConsoleCanvas")
 if (canvas)
 {
     context = canvas.getContext("2d")
 
-    var env=smallSchemeEnv()
+    env=smallSchemeEnv()
     consoleInstance = new Console(canvas, context, function(cmd){
         if (cmd == "") return " "
         try {
@@ -13,8 +14,11 @@ if (canvas)
             let val     = smallSchemeEvalAST(cpsExp, env)
             return val.pprint()
         } catch (err) {
-            if (err.name == "SmallSchemeError")
-                return "*ERROR* "+err.message
+            if (err.name == "SmallSchemeError") {
+                let msg = "*ERROR* "+err.message
+                console.log(msg)
+                return msg
+            }
             else
                 throw err
         }

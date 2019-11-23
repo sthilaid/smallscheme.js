@@ -1104,8 +1104,7 @@ function makeCallCC() {
     let kfun = AST_var.makeInternal("kfun")
     let callcc = new AST_lambda(new AST_formals([kvar, kfun], false),
                                 new AST_body([], [],
-                                             new AST_procCall(kvar,
-                                                              [new AST_procCall(kfun, [kvar, kvar])])))
+                                             new AST_procCall(kfun, [kvar, kvar])))
     callcc.isCPS = true
     return callcc
 }
